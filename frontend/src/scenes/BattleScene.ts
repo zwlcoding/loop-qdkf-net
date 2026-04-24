@@ -74,31 +74,61 @@ export class BattleScene extends Scene {
     this.refreshHud('先点当前回合单位，再按 1/2/3/4 或直接点目标。');
   }
 
+  private isPortrait(): boolean {
+    return this.scale.height > this.scale.width;
+  }
+
+  private getHudWrapWidth(): number {
+    return this.isPortrait() ? Math.max(280, this.scale.width - 32) : 460;
+  }
+
+  private getLogWrapWidth(): number {
+    return this.isPortrait() ? Math.max(280, this.scale.width - 32) : 460;
+  }
+
+  private getDebugWrapWidth(): number {
+    return this.isPortrait() ? Math.max(260, this.scale.width - 40) : 280;
+  }
+
+  private getDebugX(): number {
+    return this.isPortrait() ? 16 : 500;
+  }
+
+  private getDebugY(): number {
+    if (!this.isPortrait()) {
+      return 16;
+    }
+    return Math.min(this.scale.height - 220, 520);
+  }
+
   private createHud(): void {
+    const hudWrap = this.getHudWrapWidth();
     this.hudText = this.add.text(16, 16, '', {
       color: '#ffffff',
       fontFamily: 'monospace',
-      fontSize: '14px',
+      fontSize: this.isPortrait() ? '13px' : '14px',
       backgroundColor: '#10162fcc',
       padding: { x: 10, y: 8 },
+      wordWrap: { width: hudWrap },
     }).setScrollFactor(0).setDepth(20);
 
-    this.logText = this.add.text(16, 128, '', {
+    const logWrap = this.getLogWrapWidth();
+    this.logText = this.add.text(16, this.isPortrait() ? 180 : 128, '', {
       color: '#ffd166',
       fontFamily: 'monospace',
-      fontSize: '13px',
+      fontSize: this.isPortrait() ? '12px' : '13px',
       backgroundColor: '#10162fcc',
       padding: { x: 10, y: 8 },
-      wordWrap: { width: 460 },
+      wordWrap: { width: logWrap },
     }).setScrollFactor(0).setDepth(20);
 
-    this.debugText = this.add.text(500, 16, '', {
+    this.debugText = this.add.text(this.getDebugX(), this.getDebugY(), '', {
       color: '#9fe870',
       fontFamily: 'monospace',
-      fontSize: '12px',
+      fontSize: this.isPortrait() ? '11px' : '12px',
       backgroundColor: '#081018dd',
       padding: { x: 8, y: 6 },
-      wordWrap: { width: 280 },
+      wordWrap: { width: this.getDebugWrapWidth() },
     }).setScrollFactor(0).setDepth(21).setVisible(false);
   }
 
@@ -686,11 +716,11 @@ export class BattleScene extends Scene {
       const template = missionState.template;
       missionLines.push(`任务：${template.name}（${this.missionManager.getMissionType()}）`);
       if (missionState.isReconnaissancePhase) {
-        missionLines.push(`[侦察阶段] 距揭晓：${this.missionManager.getRemainingRevealSeconds()}秒`);
-        missionLines.push('[标记] 黄色=任务目标 ｜ 红色=首领 ｜ 金色=遗物 ｜ 绿色=撤离点');
+        missionLines.push(`[侦察] ${this.missionManager.getRemainingRevealSeconds()}秒`);
+        missionLines.push('[标记] 黄=目标 红=首领 金=遗物 绿=撤离');
       } else if (missionState.isRevealed) {
         missionLines.push(`[目标] ${this.missionManager.getCurrentObjectiveText()}`);
-        missionLines.push(`[标记] 黄色=任务目标 ｜ 红色=首领 ｜ 金色=遗物 ｜ 绿色=${this.missionManager.isExtractionUnlocked() ? '可撤离点' : '待解锁撤离点'}`);
+        missionLines.push(`[标记] 黄=目标 红=首领 金=遗物 绿=${this.missionManager.isExtractionUnlocked() ? '可撤离' : '待解锁'}`);
       }
     } else {
       missionLines.push('任务：加载中...');
@@ -703,18 +733,26 @@ export class BattleScene extends Scene {
       pressureLines.push(`[预警] ${this.missionManager.isCollapsed() ? '区域已崩溃，立即收口' : this.missionManager.getPressureStage() >= 1 ? '终局压力已启动，注意撤离时机' : '终局压力未启动'}`);
     }
 
+    const isPortrait = this.isPortrait();
+    const controlHint = isPortrait
+      ? '操作：点单位→移动/行动'
+      : '按键：M移动  1普攻  2技能  3道具  4/C连携  D调试  E结束回合';
+    const squadHint = isPortrait
+      ? `连携 A:${this.squadComboResource.getState(0).current}/${this.squadComboResource.getState(0).max} B:${this.squadComboResource.getState(1).current}/${this.squadComboResource.getState(1).max}`
+      : `A队连携值：${this.squadComboResource.getState(0).current}/${this.squadComboResource.getState(0).max} ｜ B队连携值：${this.squadComboResource.getState(1).current}/${this.squadComboResource.getState(1).max}`;
+
     const lines = [
       ...missionLines,
       ...pressureLines,
-      `当前回合：${this.getUnitDisplayName(activeUnit)}`,
-      `当前模式：${this.getModeLabel(this.actionMode)}${module ? ` / ${module.name}` : ''}`,
+      `回合：${this.getUnitDisplayName(activeUnit)}`,
+      `模式：${this.getModeLabel(this.actionMode)}${module ? ` / ${module.name}` : ''}`,
       this.selectedUnit
-        ? `移动：${this.selectedUnit.canMove() ? '可用' : '已用'} ｜ 主行动：${this.selectedUnit.hasPrimaryActionRemaining() ? '可用' : '已用'} ｜ 道具：${this.selectedUnit.hasToolOpportunityRemaining() ? '可用' : '已用'}`
-        : '先点当前回合的单位。',
-      `A队连携值：${this.squadComboResource.getState(0).current}/${this.squadComboResource.getState(0).max} ｜ B队连携值：${this.squadComboResource.getState(1).current}/${this.squadComboResource.getState(1).max}`,
+        ? `移${this.selectedUnit.canMove() ? '✓' : '✗'} 主${this.selectedUnit.hasPrimaryActionRemaining() ? '✓' : '✗'} 道${this.selectedUnit.hasToolOpportunityRemaining() ? '✓' : '✗'}`
+        : '先点当前回合单位',
+      squadHint,
       this.selectedUnit ? `状态：${this.selectedUnit.getStatusSummary().join('，') || '无'}` : '状态：无',
-      '按键：M移动  1普攻  2技能  3道具  4/C连携  D调试  E结束回合',
-      '场上标签：A队是蓝色，B队是红色。',
+      controlHint,
+      '标签：A队蓝，B队红',
     ];
 
     this.hudText.setText(lines.join('\n'));
@@ -732,14 +770,14 @@ export class BattleScene extends Scene {
 
     const activeUnit = this.turnManager.getActiveUnit();
     const selectedSummary = this.selectedUnit
-      ? `${this.getUnitDisplayName(this.selectedUnit)} HP ${this.selectedUnit.getHp()}/${this.selectedUnit.getMaxHp()} ATK ${this.selectedUnit.getAttack()} DEF ${this.selectedUnit.getDefense()} MOV ${this.selectedUnit.getMove()} JMP ${this.selectedUnit.getJump()}`
+      ? `${this.getUnitDisplayName(this.selectedUnit)} HP${this.selectedUnit.getHp()}/${this.selectedUnit.getMaxHp()} ATK${this.selectedUnit.getAttack()} DEF${this.selectedUnit.getDefense()} MOV${this.selectedUnit.getMove()} JMP${this.selectedUnit.getJump()}`
       : '无';
     const focusTile = this.hoveredTile ?? (this.selectedUnit ? { x: this.selectedUnit.getTileX(), y: this.selectedUnit.getTileY() } : null);
     const tileSummary = focusTile
       ? `(${focusTile.x},${focusTile.y}) h=${this.gridMap.getHeight(focusTile.x, focusTile.y)}`
       : '无';
     const comboSummary = this.selectedUnit
-      ? `可用模块 ${this.selectedUnit.getComboModules().length} / 连携值 ${this.squadComboResource.getState(this.selectedUnit.getSquad()).current}`
+      ? `模块${this.selectedUnit.getComboModules().length} 连携${this.squadComboResource.getState(this.selectedUnit.getSquad()).current}`
       : '无';
     const turnOrder = this.units
       .filter((unit) => unit.isAlive())
@@ -747,13 +785,13 @@ export class BattleScene extends Scene {
       .join(' ');
 
     const debugLines = [
-      '[调试面板]',
-      `回合序列：${turnOrder || '无'}`,
-      `任务状态：${this.missionManager.getCurrentObjectiveText()}`,
-      `已选单位：${selectedSummary}`,
-      `聚焦地块：${tileSummary}`,
-      `连携条件：${comboSummary}`,
-      `撤离条件：${this.missionManager.getExtractionStatusText()}`,
+      '[调试]',
+      `序列：${turnOrder || '无'}`,
+      `任务：${this.missionManager.getCurrentObjectiveText()}`,
+      `单位：${selectedSummary}`,
+      `地块：${tileSummary}`,
+      `连携：${comboSummary}`,
+      `撤离：${this.missionManager.getExtractionStatusText()}`,
     ];
 
     this.debugText.setText(debugLines.join('\n'));
@@ -778,5 +816,15 @@ export class BattleScene extends Scene {
     }
 
     this.syncUnitBadges();
+    this.validatePortraitLayout();
+  }
+
+  private validatePortraitLayout(): void {
+    const portrait = this.isPortrait();
+    const minReadableWidth = 320;
+    if (portrait && this.scale.width < minReadableWidth) {
+      // eslint-disable-next-line no-console
+      console.warn(`[BattleScene] Portrait width ${this.scale.width}px is below readable threshold ${minReadableWidth}px`);
+    }
   }
 }

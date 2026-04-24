@@ -1,7 +1,10 @@
 import { defineConfig } from 'vite';
 
-export default defineConfig({
+const pagesBase = '/loop-qdkf-net/';
+
+export default defineConfig(({ command }) => ({
   root: '.',
+  base: command === 'serve' ? '/' : pagesBase,
   publicDir: 'assets',
   build: {
     outDir: 'dist',
@@ -11,4 +14,4 @@ export default defineConfig({
     port: 5173,
     host: true,
   },
-});
+}));
