@@ -1,0 +1,336 @@
+{
+  "modules": [
+    {
+      "id": "slash",
+      "name": "Slash",
+      "category": "active",
+      "description": "Basic melee attack",
+      "targeting": {
+        "range": 1,
+        "shape": "single",
+        "lineOfSight": false
+      },
+      "effects": [
+        {
+          "type": "damage",
+          "power": 1.0
+        }
+      ]
+    },
+    {
+      "id": "fireball",
+      "name": "Fireball",
+      "category": "active",
+      "description": "Ranged magic damage",
+      "targeting": {
+        "range": 4,
+        "shape": "single",
+        "lineOfSight": true
+      },
+      "effects": [
+        {
+          "type": "damage",
+          "power": 1.5
+        }
+      ]
+    },
+    {
+      "id": "heal",
+      "name": "Heal",
+      "category": "active",
+      "description": "Restore HP to target",
+      "targeting": {
+        "range": 3,
+        "shape": "single",
+        "lineOfSight": false
+      },
+      "effects": [
+        {
+          "type": "heal",
+          "power": 20
+        }
+      ]
+    },
+    {
+      "id": "shield_bash",
+      "name": "Shield Bash",
+      "category": "active",
+      "description": "Attack with knockback",
+      "targeting": {
+        "range": 1,
+        "shape": "single",
+        "lineOfSight": false
+      },
+      "effects": [
+        {
+          "type": "damage",
+          "power": 0.8
+        },
+        {
+          "type": "knockback",
+          "distance": 2
+        }
+      ]
+    },
+    {
+      "id": "barrier_field",
+      "name": "Barrier Field",
+      "category": "active",
+      "description": "Apply shield to an ally",
+      "targeting": {
+        "range": 3,
+        "shape": "single",
+        "lineOfSight": false
+      },
+      "effects": [
+        {
+          "type": "status",
+          "status": "shield",
+          "duration": 2,
+          "value": 2
+        }
+      ]
+    },
+    {
+      "id": "toxin_round",
+      "name": "Toxin Round",
+      "category": "active",
+      "description": "Apply poison and vulnerable",
+      "targeting": {
+        "range": 3,
+        "shape": "single",
+        "lineOfSight": true
+      },
+      "effects": [
+        {
+          "type": "damage",
+          "power": 0.5
+        },
+        {
+          "type": "status",
+          "status": "poison",
+          "duration": 2,
+          "value": 2
+        },
+        {
+          "type": "status",
+          "status": "vulnerable",
+          "duration": 1,
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "charge",
+      "name": "Charge",
+      "category": "active",
+      "description": "Dash and strike with bonus damage",
+      "targeting": {
+        "range": 2,
+        "shape": "single",
+        "lineOfSight": false
+      },
+      "effects": [
+        {
+          "type": "damage",
+          "power": 1.2
+        }
+      ]
+    },
+    {
+      "id": "root_shot",
+      "name": "Root Shot",
+      "category": "active",
+      "description": "Immobilize target",
+      "targeting": {
+        "range": 4,
+        "shape": "single",
+        "lineOfSight": true
+      },
+      "effects": [
+        {
+          "type": "status",
+          "status": "root",
+          "duration": 2,
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "speed_boost",
+      "name": "Speed Boost",
+      "category": "passive",
+      "description": "+2 Speed",
+      "effects": [
+        {
+          "type": "stat_mod",
+          "stat": "speed",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "id": "iron_skin",
+      "name": "Iron Skin",
+      "category": "passive",
+      "description": "+3 Defense",
+      "effects": [
+        {
+          "type": "stat_mod",
+          "stat": "defense",
+          "value": 3
+        }
+      ]
+    },
+    {
+      "id": "adrenaline",
+      "name": "Adrenaline",
+      "category": "passive",
+      "description": "+2 Attack",
+      "effects": [
+        {
+          "type": "stat_mod",
+          "stat": "attack",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "id": "vigor",
+      "name": "Vigor",
+      "category": "passive",
+      "description": "+15 Max HP",
+      "effects": [
+        {
+          "type": "stat_mod",
+          "stat": "maxHp",
+          "value": 15
+        }
+      ]
+    },
+    {
+      "id": "team_strike",
+      "name": "Team Strike",
+      "category": "combo",
+      "description": "Squad combo attack",
+      "comboCost": 2,
+      "participationRules": {
+        "maxAllies": 2,
+        "range": 3,
+        "lineOfSight": true
+      },
+      "effects": [
+        {
+          "type": "damage",
+          "power": 1.2,
+          "perParticipant": true
+        }
+      ]
+    },
+    {
+      "id": "unison_blast",
+      "name": "Unison Blast",
+      "category": "combo",
+      "description": "High-damage focused combo",
+      "comboCost": 3,
+      "participationRules": {
+        "maxAllies": 1,
+        "range": 4,
+        "lineOfSight": true
+      },
+      "effects": [
+        {
+          "type": "damage",
+          "power": 1.8,
+          "perParticipant": true
+        }
+      ]
+    },
+    {
+      "id": "rescue_link",
+      "name": "Rescue Link",
+      "category": "combo",
+      "description": "Heal all participants and one target ally",
+      "comboCost": 2,
+      "participationRules": {
+        "maxAllies": 2,
+        "range": 3,
+        "lineOfSight": false
+      },
+      "effects": [
+        {
+          "type": "heal",
+          "power": 15
+        },
+        {
+          "type": "status",
+          "status": "shield",
+          "duration": 1,
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "potion",
+      "name": "Healing Potion",
+      "category": "tool",
+      "description": "Consume to heal 30 HP",
+      "usesPerTurn": 1,
+      "effects": [
+        {
+          "type": "heal",
+          "power": 30
+        }
+      ]
+    },
+    {
+      "id": "smoke_bomb",
+      "name": "Smoke Bomb",
+      "category": "tool",
+      "description": "Slow enemies in an area",
+      "usesPerTurn": 1,
+      "effects": [
+        {
+          "type": "status",
+          "status": "slow",
+          "duration": 2,
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "stim_pack",
+      "name": "Stim Pack",
+      "category": "tool",
+      "description": "Heal 15 HP and grant a small shield",
+      "usesPerTurn": 1,
+      "effects": [
+        {
+          "type": "heal",
+          "power": 15
+        },
+        {
+          "type": "status",
+          "status": "shield",
+          "duration": 1,
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "flash_bang",
+      "name": "Flash Bang",
+      "category": "tool",
+      "description": "Stun target for one turn",
+      "usesPerTurn": 1,
+      "effects": [
+        {
+          "type": "status",
+          "status": "stun",
+          "duration": 1,
+          "value": 1
+        }
+      ]
+    }
+  ]
+}

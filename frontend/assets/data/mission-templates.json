@@ -1,0 +1,94 @@
+{
+  "templates": [
+    {
+      "id": "coop_boss_kill",
+      "name": "Boss Elimination",
+      "type": "cooperative",
+      "description": "Defeat the boss together",
+      "revealDelay": 30,
+      "objectives": [
+        {
+          "type": "defeat",
+          "target": "boss",
+          "count": 1
+        }
+      ],
+      "extractionRules": {
+        "type": "shared",
+        "trigger": "objective_complete",
+        "timeout": 120,
+        "partialRetention": 0.5
+      },
+      "endgamePressure": {
+        "startTime": 600,
+        "escalationInterval": 60,
+        "collapseMechanic": "corruption_spread"
+      }
+    },
+    {
+      "id": "relic_contest",
+      "name": "Relic Contest",
+      "type": "competitive",
+      "description": "Capture and extract with the relic",
+      "revealDelay": 30,
+      "objectives": [
+        {
+          "type": "capture",
+          "target": "relic",
+          "count": 1
+        }
+      ],
+      "extractionRules": {
+        "type": "priority",
+        "trigger": "relic_carrier",
+        "timeout": 90,
+        "partialRetention": 0.3
+      },
+      "endgamePressure": {
+        "startTime": 600,
+        "escalationInterval": 45,
+        "collapseMechanic": "zone_collapse"
+      }
+    },
+    {
+      "id": "coop_then_reversal",
+      "name": "Betrayal",
+      "type": "reversal",
+      "description": "Cooperate, then compete for extraction",
+      "revealDelay": 30,
+      "phases": [
+        {
+          "name": "cooperation",
+          "objectives": [
+            {
+              "type": "defend",
+              "target": "extract_point",
+              "duration": 120
+            }
+          ]
+        },
+        {
+          "name": "reversal",
+          "objectives": [
+            {
+              "type": "extract",
+              "target": "extract_point",
+              "capacity": 3
+            }
+          ]
+        }
+      ],
+      "extractionRules": {
+        "type": "capacity_limited",
+        "trigger": "phase_complete",
+        "timeout": 90,
+        "partialRetention": 0.4
+      },
+      "endgamePressure": {
+        "startTime": 630,
+        "escalationInterval": 60,
+        "collapseMechanic": "boss_escalation"
+      }
+    }
+  ]
+}

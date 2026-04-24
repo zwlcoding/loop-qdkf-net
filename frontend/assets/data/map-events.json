@@ -1,0 +1,104 @@
+{
+  "events": [
+    {
+      "id": "supply_cache",
+      "name": "Supply Cache",
+      "type": "reward",
+      "description": "Contains healing items and temporary buffs",
+      "spawnRules": {
+        "minDistanceFromSpawn": 3,
+        "maxDistanceFromSpawn": 8,
+        "avoidMissionObjectives": true
+      },
+      "rewards": [
+        {
+          "type": "tool",
+          "itemId": "potion",
+          "quantity": 2
+        },
+        {
+          "type": "temporary_buff",
+          "stat": "attack",
+          "value": 3,
+          "duration": 3
+        }
+      ]
+    },
+    {
+      "id": "ambush_trap",
+      "name": "Ambush Trap",
+      "type": "hazard",
+      "description": "Triggers enemy spawn or damage when stepped on",
+      "spawnRules": {
+        "minDistanceFromSpawn": 4,
+        "terrainPreference": ["dirt", "stone"],
+        "avoidClearPaths": true
+      },
+      "effects": [
+        {
+          "type": "damage",
+          "power": 15
+        },
+        {
+          "type": "status",
+          "status": "slow",
+          "duration": 2
+        }
+      ]
+    },
+    {
+      "id": "data_terminal",
+      "name": "Data Terminal",
+      "type": "side_task",
+      "description": "Hack to reveal map intel and bonus rewards",
+      "spawnRules": {
+        "minDistanceFromSpawn": 5,
+        "maxPerRun": 2,
+        "avoidClusters": true
+      },
+      "objective": {
+        "type": "interact",
+        "turnsRequired": 2,
+        "interruptedByCombat": true
+      },
+      "rewards": [
+        {
+          "type": "intel",
+          "reveals": ["enemy_positions", "extraction_zones"]
+        },
+        {
+          "type": "currency",
+          "amount": 50
+        }
+      ]
+    },
+    {
+      "id": "field_vendor",
+      "name": "Field Vendor",
+      "type": "vendor",
+      "description": "Sells modules and tools for temporary run currency",
+      "spawnRules": {
+        "minDistanceFromSpawn": 6,
+        "maxPerRun": 1,
+        "terrainPreference": ["grass"]
+      },
+      "inventory": [
+        {
+          "itemId": "potion",
+          "cost": 20,
+          "stock": 3
+        },
+        {
+          "itemId": "smoke_bomb",
+          "cost": 30,
+          "stock": 2
+        },
+        {
+          "itemId": "speed_boost",
+          "cost": 40,
+          "stock": 1
+        }
+      ]
+    }
+  ]
+}

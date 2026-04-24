@@ -1,0 +1,99 @@
+{
+  "chassis": [
+    {
+      "id": "vanguard",
+      "name": "Vanguard",
+      "role": "Tank / Frontline",
+      "baseStats": {
+        "hp": 120,
+        "move": 3,
+        "jump": 1,
+        "speed": 8,
+        "attack": 15,
+        "defense": 12
+      },
+      "slotBias": {
+        "active": 2,
+        "passive": 1,
+        "combo": 1,
+        "tool": 1
+      }
+    },
+    {
+      "id": "skirmisher",
+      "name": "Skirmisher",
+      "role": "Flanker / Scout",
+      "baseStats": {
+        "hp": 90,
+        "move": 4,
+        "jump": 2,
+        "speed": 10,
+        "attack": 12,
+        "defense": 8
+      },
+      "slotBias": {
+        "active": 2,
+        "passive": 1,
+        "combo": 1,
+        "tool": 1
+      }
+    },
+    {
+      "id": "caster",
+      "name": "Caster",
+      "role": "Damage / Control",
+      "baseStats": {
+        "hp": 70,
+        "move": 3,
+        "jump": 1,
+        "speed": 7,
+        "attack": 18,
+        "defense": 5
+      },
+      "slotBias": {
+        "active": 2,
+        "passive": 1,
+        "combo": 1,
+        "tool": 1
+      }
+    },
+    {
+      "id": "support",
+      "name": "Support",
+      "role": "Healer / Buffer",
+      "baseStats": {
+        "hp": 80,
+        "move": 3,
+        "jump": 1,
+        "speed": 9,
+        "attack": 8,
+        "defense": 7
+      },
+      "slotBias": {
+        "active": 2,
+        "passive": 1,
+        "combo": 1,
+        "tool": 1
+      }
+    },
+    {
+      "id": "controller",
+      "name": "Controller",
+      "role": "Disrupt / Zone",
+      "baseStats": {
+        "hp": 85,
+        "move": 3,
+        "jump": 1,
+        "speed": 8,
+        "attack": 10,
+        "defense": 9
+      },
+      "slotBias": {
+        "active": 2,
+        "passive": 1,
+        "combo": 1,
+        "tool": 1
+      }
+    }
+  ]
+}
