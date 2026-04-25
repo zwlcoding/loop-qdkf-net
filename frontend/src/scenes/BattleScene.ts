@@ -7,6 +7,8 @@ import { SquadComboResource } from '../core/SquadComboResource';
 import { MissionManager } from '../core/MissionManager';
 import { createBattleResultSummary, getBattleResultSummaryText, resolveWinningSquadId } from '../core/BattleResultSummary';
 import { BATTLE_SETUP_REGISTRY_KEY, createSeededBattleSetup, validateBattleSetup, type BattleSetup } from '../core/BattleSetup';
+import { buildMissionMarkers } from '../core/BattleMarkers';
+import { filterReachableTilesByOccupancy, isTileOccupiedByOtherUnit } from '../core/BattleOccupancy';
 import { Unit } from '../entities/Unit';
 import { StatusEffect } from '../entities/StatusEffect';
 import { contentLoader } from '../data/ContentLoader';
@@ -49,6 +51,7 @@ export class BattleScene extends Scene {
   private readonly unitBadges = new Map<string, Phaser.GameObjects.Text>();
   private readonly squadControl = new Map<number, 'human' | 'ai'>();
   private lastLoggedPressureStage = -1;
+  private lastMissionMarkerSignature = '';
   private resolvingBotTurn = false;
   private activeSetup!: BattleSetup;
   private battleEnded = false;
@@ -89,6 +92,7 @@ export class BattleScene extends Scene {
     this.createHud();
     this.createPortraitActionBar();
     this.createUnitsFromSetup();
+    this.updateMissionMarkers();
     this.squadComboResource = new SquadComboResource(3, [...new Set(this.units.map((unit) => unit.getSquad()))]);
 
     this.turnManager.startNextTurn();
@@ -346,10 +350,50 @@ export class BattleScene extends Scene {
     };
   }
 
+  private getAliveUnits(): Unit[] {
+    return this.units.filter((candidate) => candidate.isAlive());
+  }
+
+  private getReachableTilesForUnit(unit: Unit): Array<{ x: number; y: number; path: { x: number; y: number }[] }> {
+    if (!unit.canMove()) {
+      return [];
+    }
+
+    return filterReachableTilesByOccupancy(
+      this.gridMap.findReachableTiles(unit.getTileX(), unit.getTileY(), unit.getMove(), unit.getJump()),
+      this.getAliveUnits().map((candidate) => ({
+        id: candidate.getId(),
+        tileX: candidate.getTileX(),
+        tileY: candidate.getTileY(),
+        isAlive: candidate.isAlive(),
+      })),
+      unit.getId(),
+    );
+  }
+
+  private updateMissionMarkers(): void {
+    const markers = buildMissionMarkers({
+      mission: this.buildBotMissionSnapshot(),
+      units: this.getAliveUnits().map((unit) => ({
+        id: unit.getId(),
+        tileX: unit.getTileX(),
+        tileY: unit.getTileY(),
+        isAlive: unit.isAlive(),
+      })),
+      objectiveTiles: this.gridMap.getObjectiveTiles().map((tile) => ({ x: tile.x, y: tile.y })),
+    });
+    const signature = JSON.stringify(markers);
+
+    if (signature === this.lastMissionMarkerSignature) {
+      return;
+    }
+
+    this.lastMissionMarkerSignature = signature;
+    this.gridMap.drawMissionMarkers(markers);
+  }
+
   private buildBotBattleState(unit: Unit): BotBattleState {
-    const reachableTiles = unit.canMove()
-      ? this.gridMap.findReachableTiles(unit.getTileX(), unit.getTileY(), unit.getMove(), unit.getJump())
-      : [];
+    const reachableTiles = this.getReachableTilesForUnit(unit);
 
     return {
       actorId: unit.getId(),
@@ -611,12 +655,7 @@ export class BattleScene extends Scene {
     }
 
     if (unit.canMove()) {
-      this.reachableTiles = this.gridMap.findReachableTiles(
-        unit.getTileX(),
-        unit.getTileY(),
-        unit.getMove(),
-        unit.getJump()
-      );
+      this.reachableTiles = this.getReachableTilesForUnit(unit);
     } else {
       this.reachableTiles = [];
     }
@@ -823,6 +862,21 @@ export class BattleScene extends Scene {
 
   private moveUnitTo(unit: Unit, tileX: number, tileY: number): void {
     const movementPath = [...this.pathPreview];
+    if (isTileOccupiedByOtherUnit(
+      this.getAliveUnits().map((candidate) => ({
+        id: candidate.getId(),
+        tileX: candidate.getTileX(),
+        tileY: candidate.getTileY(),
+        isAlive: candidate.isAlive(),
+      })),
+      tileX,
+      tileY,
+      unit.getId(),
+    )) {
+      this.refreshHud('目标格已有单位，不能重叠站位。');
+      return;
+    }
+
     unit.moveTo(tileX, tileY);
     this.syncUnitBadges();
     this.clearReachableTiles();
@@ -1245,6 +1299,7 @@ export class BattleScene extends Scene {
 
   update(_time: number, delta: number): void {
     this.missionManager.update(delta);
+    this.updateMissionMarkers();
     this.maybeShowBattleSummary();
 
     if (this.battleEnded) {
