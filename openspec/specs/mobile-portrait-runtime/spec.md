@@ -15,13 +15,13 @@ The system SHALL treat a phone portrait viewport as the primary runtime target f
 - **THEN** the runtime shell SHALL recompute layout and preserve a usable portrait presentation instead of leaving stale desktop positioning
 
 ### Requirement: Portrait runtime HUD SHALL prioritize readability and tap safety
-The system SHALL arrange mission HUD, action hints, logs, and other essential overlays so they remain readable and do not block the main tactical interaction area on phone portrait widths.
+The system SHALL arrange mission HUD, action hints, logs, and other essential overlays so they remain readable, touch-safe, and do not block the main tactical interaction area on phone portrait widths.
 
-#### Scenario: Essential information is shown on a phone
+#### Scenario: Essential battle HUD is shown on a phone
 - **WHEN** the battle scene renders on a portrait-width device
-- **THEN** the system SHALL keep the current mission state, active-unit guidance, and late-game pressure readable without overlapping critical action targets
+- **THEN** the system SHALL keep the current mission state, active-unit guidance, and primary controls readable without covering a large portion of actionable battle tiles
 
-#### Scenario: Non-essential overlays are present
-- **WHEN** debug or secondary informational overlays are enabled on a phone portrait viewport
-- **THEN** the system SHALL keep them collapsed, repositioned, or otherwise constrained so the main battle surface remains usable
+#### Scenario: Secondary overlays are present on a phone
+- **WHEN** logs, debug information, or other secondary overlays are shown on a portrait viewport
+- **THEN** the system SHALL constrain, shorten, collapse, or reposition them so the main battle surface remains tappable
 
