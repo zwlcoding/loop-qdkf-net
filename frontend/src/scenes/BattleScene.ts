@@ -5,6 +5,8 @@ import { CombatResolver } from '../core/CombatResolver';
 import { ActionOption, ActionResolver, TargetActionState, UnitActionState } from '../core/ActionResolver';
 import { SquadComboResource } from '../core/SquadComboResource';
 import { MissionManager } from '../core/MissionManager';
+import { createBattleResultSummary, getBattleResultSummaryText, resolveWinningSquadId } from '../core/BattleResultSummary';
+import { BATTLE_SETUP_REGISTRY_KEY, createSeededBattleSetup, validateBattleSetup, type BattleSetup } from '../core/BattleSetup';
 import { Unit } from '../entities/Unit';
 import { StatusEffect } from '../entities/StatusEffect';
 import { contentLoader } from '../data/ContentLoader';
@@ -45,14 +47,18 @@ export class BattleScene extends Scene {
   private targetableTiles: { x: number; y: number; color?: number; alpha?: number }[] = [];
   private readonly unitDisplayNames = new Map<string, string>();
   private readonly unitBadges = new Map<string, Phaser.GameObjects.Text>();
+  private readonly squadControl = new Map<number, 'human' | 'ai'>();
   private lastLoggedPressureStage = -1;
   private resolvingBotTurn = false;
+  private activeSetup!: BattleSetup;
+  private battleEnded = false;
 
   constructor() {
     super({ key: 'BattleScene' });
   }
 
   create(): void {
+    this.activeSetup = this.resolveBattleSetup();
     this.gridMap = new GridMap(this, 16, 12, 64);
     this.registry.set('gridMap', this.gridMap);
 
@@ -60,7 +66,9 @@ export class BattleScene extends Scene {
     this.combatResolver = new CombatResolver(this.gridMap);
     this.registry.set('combatResolver', this.combatResolver);
 
-    const missionTemplate = contentLoader.getRandomMissionTemplate();
+    const missionTemplate = this.activeSetup.missionTemplateId
+      ? contentLoader.getMissionTemplate(this.activeSetup.missionTemplateId)
+      : contentLoader.getRandomMissionTemplate();
     this.missionManager = new MissionManager();
     if (missionTemplate) {
       this.missionManager.startMission(missionTemplate);
@@ -80,13 +88,31 @@ export class BattleScene extends Scene {
 
     this.createHud();
     this.createPortraitActionBar();
-    this.createTestUnits();
+    this.createUnitsFromSetup();
     this.squadComboResource = new SquadComboResource(3, [...new Set(this.units.map((unit) => unit.getSquad()))]);
 
     this.turnManager.startNextTurn();
     this.setupInputHandlers();
     this.setupKeyboardShortcuts();
     this.refreshHud();
+  }
+
+  private resolveBattleSetup(): BattleSetup {
+    const candidate = this.registry.get(BATTLE_SETUP_REGISTRY_KEY) as BattleSetup | undefined;
+    const fallback = createSeededBattleSetup();
+    const setup = candidate ?? fallback;
+    const validation = validateBattleSetup(setup, {
+      chassis: contentLoader.getAllChassis(),
+      modules: contentLoader.getAllModules(),
+      missions: contentLoader.getAllMissionTemplates(),
+    });
+
+    if (!validation.valid) {
+      this.registry.set(BATTLE_SETUP_REGISTRY_KEY, fallback);
+      return fallback;
+    }
+
+    return setup;
   }
 
   private isPortrait(): boolean {
@@ -186,18 +212,24 @@ export class BattleScene extends Scene {
     this.refreshPortraitActionBar();
   }
 
-  private createTestUnits(): void {
-    const seededUnits: Array<{ unit: Unit; label: string }> = [
-      { unit: new Unit(this, 2, 5, 'vanguard', 0), label: 'A1 先锋' },
-      { unit: new Unit(this, 3, 4, 'caster', 0), label: 'A2 法师' },
-      { unit: new Unit(this, 2, 6, 'support', 0), label: 'A3 支援' },
-      { unit: new Unit(this, 13, 5, 'skirmisher', 1), label: 'B1 游击' },
-      { unit: new Unit(this, 12, 4, 'controller', 1), label: 'B2 控场' },
-      { unit: new Unit(this, 13, 6, 'vanguard', 1), label: 'B3 先锋' },
-    ];
+  private createUnitsFromSetup(): void {
+    const seededUnits: Array<{ unit: Unit; label: string }> = [];
+
+    this.activeSetup.squads.forEach((squad) => {
+      this.squadControl.set(squad.id, squad.control);
+      squad.units.forEach((unitConfig) => {
+        const unit = new Unit(this, unitConfig.tile.x, unitConfig.tile.y, unitConfig.chassisId, squad.id, unitConfig.id);
+        unitConfig.moduleIds
+          .map((moduleId) => contentLoader.getModule(moduleId))
+          .filter((module): module is ModuleDefinition => Boolean(module))
+          .forEach((module) => unit.equipModule(module));
+        seededUnits.push({ unit, label: unitConfig.label });
+      });
+    });
+
     const aiConfig = getBattleSceneAiConfig(this.missionManager.getMissionId());
 
-    if (aiConfig.boss) {
+    if (aiConfig.boss && this.activeSetup.boss?.enabled) {
       seededUnits.push({
         unit: new Unit(
           this,
@@ -209,6 +241,7 @@ export class BattleScene extends Scene {
         ),
         label: aiConfig.boss.label,
       });
+      this.squadControl.set(aiConfig.boss.squadId, 'ai');
     }
 
     seededUnits.forEach(({ unit, label }) => {
@@ -289,7 +322,11 @@ export class BattleScene extends Scene {
   }
 
   private isBotControlledUnit(unit: Unit | null): boolean {
-    return unit ? isBattleSceneAutoControlledSquad(unit.getSquad()) : false;
+    if (!unit) {
+      return false;
+    }
+
+    return (this.squadControl.get(unit.getSquad()) ?? (isBattleSceneAutoControlledSquad(unit.getSquad()) ? 'ai' : 'human')) === 'ai';
   }
 
   private buildBotMissionSnapshot(): BotMissionSnapshot | null {
@@ -416,9 +453,18 @@ export class BattleScene extends Scene {
       this.debugText.setVisible(this.showDebugOverlay);
       this.refreshHud(this.showDebugOverlay ? '调试面板已开启。' : '调试面板已关闭。');
     });
+    this.input.keyboard?.on('keydown-R', () => {
+      if (this.battleEnded) {
+        this.scene.start('SetupScene');
+      }
+    });
   }
 
   private handlePortraitAction(action: BattleSceneActionBarAction['id']): void {
+    if (this.battleEnded) {
+      return;
+    }
+
     const state = this.getPortraitActionState().find((item) => item.id === action);
     if (!state?.enabled) {
       return;
@@ -497,6 +543,10 @@ export class BattleScene extends Scene {
   }
 
   private handlePointerMove(pointer: Input.Pointer): void {
+    if (this.battleEnded) {
+      return;
+    }
+
     const tilePos = this.gridMap.worldToTile(pointer.x, pointer.y);
     if (!tilePos) {
       this.clearPathPreview();
@@ -520,6 +570,10 @@ export class BattleScene extends Scene {
   }
 
   private handlePointerDown(pointer: Input.Pointer): void {
+    if (this.battleEnded) {
+      return;
+    }
+
     const tilePos = this.gridMap.worldToTile(pointer.x, pointer.y);
     if (!tilePos) return;
 
@@ -572,6 +626,10 @@ export class BattleScene extends Scene {
   }
 
   private setActionMode(mode: ActionMode): void {
+    if (this.battleEnded) {
+      return;
+    }
+
     if (!this.selectedUnit) {
       return;
     }
@@ -954,18 +1012,127 @@ export class BattleScene extends Scene {
     this.refreshHud();
   }
 
+  private isUnitStandingOnObjectiveTile(unit: Unit): boolean {
+    return this.gridMap.getObjectiveTiles().some((tile) => tile.x === unit.getTileX() && tile.y === unit.getTileY());
+  }
+
+  private removeUnitFromBattle(unit: Unit): void {
+    this.turnManager.removeUnit(unit);
+    this.units = this.units.filter((candidate) => candidate.getId() !== unit.getId());
+    const badge = this.unitBadges.get(unit.getId());
+    if (badge) {
+      badge.destroy();
+      this.unitBadges.delete(unit.getId());
+    }
+    unit.destroy();
+  }
+
+  private tryResolveExtraction(unit: Unit): boolean {
+    if (!this.missionManager.canUnitExtract(unit.getId(), unit.getSquad())) {
+      return false;
+    }
+
+    if (!this.isUnitStandingOnObjectiveTile(unit)) {
+      return false;
+    }
+
+    if (!this.missionManager.extractUnit(unit.getId())) {
+      return false;
+    }
+
+    this.removeUnitFromBattle(unit);
+    this.refreshLog(`[撤离] ${this.getUnitDisplayName(unit)} 已成功撤离。`);
+    return true;
+  }
+
   private endActiveTurn(): void {
-    if (!this.turnManager.getActiveUnit()) {
+    if (this.battleEnded || !this.turnManager.getActiveUnit()) {
       return;
     }
 
+    const activeUnit = this.turnManager.getActiveUnit();
+    if (!activeUnit) {
+      return;
+    }
+
+    const extracted = this.tryResolveExtraction(activeUnit);
     this.selectedUnit = null;
     this.actionMode = 'move';
     this.selectedModuleId = null;
-    this.turnManager.endCurrentTurn();
+    if (!extracted) {
+      this.turnManager.endCurrentTurn();
+    } else {
+      this.turnManager.startNextTurn();
+    }
     this.clearReachableTiles();
     this.syncUnitBadges();
-    this.refreshHud('回合结束。');
+    this.refreshHud(extracted ? '单位已撤离，切换到下一回合。' : '回合结束。');
+  }
+
+  private isObjectiveCompleted(): boolean {
+    return Boolean(
+      this.missionManager.getBossKillState()?.isDefeated
+      || this.missionManager.getRelicContestState()?.isCaptured
+      || this.missionManager.getCoopThenReversalState()?.isReversed
+    );
+  }
+
+  private maybeShowBattleSummary(): void {
+    if (this.battleEnded) {
+      return;
+    }
+
+    const extractedIds = this.missionManager.getExtractedUnitIds();
+    const aliveSquadUnits = this.units.filter((unit) => unit.isAlive() && unit.getSquad() <= 1);
+    const aliveSquadIds = aliveSquadUnits.map((unit) => unit.getSquad());
+    const squad0Alive = aliveSquadIds.indexOf(0) >= 0;
+    const squad1Alive = aliveSquadIds.indexOf(1) >= 0;
+    const extractionPending = this.missionManager.isExtractionUnlocked()
+      && this.missionManager.getExtractionTimeRemainingMs() > 0
+      && aliveSquadUnits.some((unit) => extractedIds.indexOf(unit.getId()) < 0);
+
+    if (!this.missionManager.isCollapsed()) {
+      if (!this.isObjectiveCompleted() && squad0Alive && squad1Alive) {
+        return;
+      }
+
+      if (this.isObjectiveCompleted() && extractionPending) {
+        return;
+      }
+    }
+
+    this.battleEnded = true;
+    const survivingOrExtractedUnitIds = new Set([
+      ...this.units.filter((unit) => unit.isAlive()).map((unit) => unit.getId()),
+      ...extractedIds,
+    ]);
+    const winningSquadId = resolveWinningSquadId(this.activeSetup, Array.from(survivingOrExtractedUnitIds));
+    const summary = createBattleResultSummary({
+      setup: this.activeSetup,
+      durationSeconds: this.missionManager.getElapsedSeconds(),
+      objectiveCompleted: this.isObjectiveCompleted(),
+      extractedUnitIds: extractedIds,
+      survivingUnitIds: Array.from(survivingOrExtractedUnitIds),
+      winningSquadId,
+      extractionPayout: {
+        conversionRate: 0.5,
+        partialRetention: this.missionManager.getTemplate()?.extractionRules.partialRetention ?? 0.25,
+        minimumPayout: 10,
+      },
+    });
+
+    const panel = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, Math.min(760, this.scale.width - 48), Math.min(540, this.scale.height - 48), 0x020617, 0.92)
+      .setScrollFactor(0)
+      .setDepth(40)
+      .setStrokeStyle(2, 0x93c5fd, 0.8);
+    this.add.text(this.scale.width / 2, this.scale.height / 2, getBattleResultSummaryText(summary), {
+      color: '#f8fafc',
+      fontFamily: 'monospace',
+      fontSize: '16px',
+      align: 'left',
+      wordWrap: { width: panel.width - 40 },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(41);
+    this.refreshLog('战斗结束，按 R 返回设置。');
   }
 
   private refreshHud(message?: string): void {
@@ -1078,6 +1245,13 @@ export class BattleScene extends Scene {
 
   update(_time: number, delta: number): void {
     this.missionManager.update(delta);
+    this.maybeShowBattleSummary();
+
+    if (this.battleEnded) {
+      this.syncUnitBadges();
+      this.validatePortraitLayout();
+      return;
+    }
 
     const currentPressureStage = this.missionManager.getPressureStage();
     if (currentPressureStage > this.lastLoggedPressureStage && currentPressureStage > 1) {

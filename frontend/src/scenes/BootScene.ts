@@ -43,7 +43,7 @@ export class BootScene extends Scene {
     this.registry.set('mapEvents', mapEvents);
     this.registry.set('contentLoader', contentLoader);
     
-    // Transition to battle scene
-    this.scene.start('BattleScene');
+    // Transition to local setup flow
+    this.scene.start('SetupScene');
   }
 }

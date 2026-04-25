@@ -1,6 +1,7 @@
 import { AUTO, Game, Scale, Types } from 'phaser';
 import { BootScene } from './scenes/BootScene';
 import { BattleScene } from './scenes/BattleScene';
+import { SetupScene } from './scenes/SetupScene';
 
 function getGameDimensions(): { width: number; height: number } {
   const isPortrait = window.innerHeight > window.innerWidth;
@@ -25,7 +26,7 @@ const config: Types.Core.GameConfig = {
   render: {
     roundPixels: true,
   },
-  scene: [BootScene, BattleScene],
+  scene: [BootScene, SetupScene, BattleScene],
   physics: {
     default: 'arcade',
     arcade: {
