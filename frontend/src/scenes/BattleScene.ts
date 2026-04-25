@@ -11,6 +11,12 @@ import { contentLoader } from '../data/ContentLoader';
 import type { ModuleDefinition } from '../data/ModuleTypes';
 import { BotTurnPlanner, resolveActorProfile, type BotBattleState, type BotMissionSnapshot } from '../ai';
 import { getBattleSceneAiConfig, isBattleSceneAutoControlledSquad } from './BattleSceneAiConfig';
+import {
+  getBattleSceneActionBarState,
+  getBattleSceneGuidanceText,
+  getBattleSceneLayout,
+  type BattleSceneActionBarAction,
+} from './BattleSceneMobileUi';
 
 type ActionMode = 'move' | 'basic' | 'skill' | 'combo' | 'tool';
 
@@ -30,6 +36,11 @@ export class BattleScene extends Scene {
   private hudText!: Phaser.GameObjects.Text;
   private logText!: Phaser.GameObjects.Text;
   private debugText!: Phaser.GameObjects.Text;
+  private portraitActionButtons: Array<{
+    action: BattleSceneActionBarAction['id'];
+    background: Phaser.GameObjects.Rectangle;
+    label: Phaser.GameObjects.Text;
+  }> = [];
   private showDebugOverlay = false;
   private targetableTiles: { x: number; y: number; color?: number; alpha?: number }[] = [];
   private readonly unitDisplayNames = new Map<string, string>();
@@ -68,71 +79,111 @@ export class BattleScene extends Scene {
     }
 
     this.createHud();
+    this.createPortraitActionBar();
     this.createTestUnits();
     this.squadComboResource = new SquadComboResource(3, [...new Set(this.units.map((unit) => unit.getSquad()))]);
 
     this.turnManager.startNextTurn();
     this.setupInputHandlers();
     this.setupKeyboardShortcuts();
-    this.refreshHud('先点当前回合单位，再按 1/2/3/4 或直接点目标。');
+    this.refreshHud();
   }
 
   private isPortrait(): boolean {
     return this.scale.height > this.scale.width;
   }
 
-  private getHudWrapWidth(): number {
-    return this.isPortrait() ? Math.max(280, this.scale.width - 32) : 460;
+  private getLayout() {
+    return getBattleSceneLayout({
+      width: this.scale.width,
+      height: this.scale.height,
+      isPortrait: this.isPortrait(),
+      debugVisible: this.showDebugOverlay,
+    });
   }
 
-  private getLogWrapWidth(): number {
-    return this.isPortrait() ? Math.max(280, this.scale.width - 32) : 460;
-  }
-
-  private getDebugWrapWidth(): number {
-    return this.isPortrait() ? Math.max(260, this.scale.width - 40) : 280;
-  }
-
-  private getDebugX(): number {
-    return this.isPortrait() ? 16 : 500;
-  }
-
-  private getDebugY(): number {
-    if (!this.isPortrait()) {
-      return 16;
-    }
-    return Math.min(this.scale.height - 220, 520);
+  private getPortraitActionState(): BattleSceneActionBarAction[] {
+    return getBattleSceneActionBarState({
+      isPortrait: this.isPortrait(),
+      activeUnitLabel: this.getUnitDisplayName(this.turnManager?.getActiveUnit?.() ?? null),
+      selectedUnitLabel: this.selectedUnit ? this.getUnitDisplayName(this.selectedUnit) : null,
+      actionMode: this.actionMode,
+      canMove: this.selectedUnit?.canMove() ?? false,
+      hasPrimaryActionRemaining: this.selectedUnit?.hasPrimaryActionRemaining() ?? false,
+      hasToolOpportunityRemaining: this.selectedUnit?.hasToolOpportunityRemaining() ?? false,
+      hasComboModule: (this.selectedUnit?.getComboModules().length ?? 0) > 0,
+      hasSkillModule: (this.selectedUnit?.getActiveModules().length ?? 0) > 0,
+      hasToolModule: (this.selectedUnit?.getToolModules().length ?? 0) > 0,
+    });
   }
 
   private createHud(): void {
-    const hudWrap = this.getHudWrapWidth();
-    this.hudText = this.add.text(16, 16, '', {
+    const layout = this.getLayout();
+    this.hudText = this.add.text(layout.hud.position.x, layout.hud.position.y, '', {
       color: '#ffffff',
       fontFamily: 'monospace',
-      fontSize: this.isPortrait() ? '13px' : '14px',
+      fontSize: `${layout.hud.fontSize}px`,
       backgroundColor: '#10162fcc',
       padding: { x: 10, y: 8 },
-      wordWrap: { width: hudWrap },
+      wordWrap: { width: layout.hud.wrapWidth },
     }).setScrollFactor(0).setDepth(20);
 
-    const logWrap = this.getLogWrapWidth();
-    this.logText = this.add.text(16, this.isPortrait() ? 180 : 128, '', {
+    this.logText = this.add.text(layout.log.position.x, layout.log.position.y, '', {
       color: '#ffd166',
       fontFamily: 'monospace',
-      fontSize: this.isPortrait() ? '12px' : '13px',
+      fontSize: `${layout.log.fontSize}px`,
       backgroundColor: '#10162fcc',
       padding: { x: 10, y: 8 },
-      wordWrap: { width: logWrap },
+      wordWrap: { width: layout.log.wrapWidth },
     }).setScrollFactor(0).setDepth(20);
 
-    this.debugText = this.add.text(this.getDebugX(), this.getDebugY(), '', {
+    this.debugText = this.add.text(layout.debug.position.x, layout.debug.position.y, '', {
       color: '#9fe870',
       fontFamily: 'monospace',
       fontSize: this.isPortrait() ? '11px' : '12px',
       backgroundColor: '#081018dd',
       padding: { x: 8, y: 6 },
-      wordWrap: { width: this.getDebugWrapWidth() },
+      wordWrap: { width: layout.debug.wrapWidth },
     }).setScrollFactor(0).setDepth(21).setVisible(false);
+  }
+
+  private createPortraitActionBar(): void {
+    const actions = getBattleSceneActionBarState({
+      isPortrait: true,
+      activeUnitLabel: '无',
+      selectedUnitLabel: null,
+      actionMode: this.actionMode,
+      canMove: false,
+      hasPrimaryActionRemaining: false,
+      hasToolOpportunityRemaining: false,
+      hasComboModule: false,
+      hasSkillModule: false,
+      hasToolModule: false,
+    });
+
+    this.portraitActionButtons = actions.map((action) => {
+      const background = this.add.rectangle(0, 0, 80, 42, 0x16213e, 0.95)
+        .setOrigin(0, 0)
+        .setStrokeStyle(2, 0x6ea8fe, 0.35)
+        .setScrollFactor(0)
+        .setDepth(25)
+        .setInteractive({ useHandCursor: true });
+      const label = this.add.text(0, 0, action.label, {
+        color: '#ffffff',
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        align: 'center',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(26);
+
+      background.on('pointerdown', () => {
+        this.handlePortraitAction(action.id);
+      });
+
+      return { action: action.id, background, label };
+    });
+
+    this.updateResponsiveLayout();
+    this.refreshPortraitActionBar();
   }
 
   private createTestUnits(): void {
@@ -364,6 +415,84 @@ export class BattleScene extends Scene {
       this.showDebugOverlay = !this.showDebugOverlay;
       this.debugText.setVisible(this.showDebugOverlay);
       this.refreshHud(this.showDebugOverlay ? '调试面板已开启。' : '调试面板已关闭。');
+    });
+  }
+
+  private handlePortraitAction(action: BattleSceneActionBarAction['id']): void {
+    const state = this.getPortraitActionState().find((item) => item.id === action);
+    if (!state?.enabled) {
+      return;
+    }
+
+    if (action === 'cancel') {
+      this.setActionMode('move');
+      this.refreshHud('已取消当前操作，回到移动。');
+      return;
+    }
+
+    if (action === 'endTurn') {
+      this.endActiveTurn();
+      return;
+    }
+
+    this.setActionMode(action);
+  }
+
+  private updateResponsiveLayout(): void {
+    const layout = this.getLayout();
+    this.hudText.setPosition(layout.hud.position.x, layout.hud.position.y);
+    this.hudText.setWordWrapWidth(layout.hud.wrapWidth);
+    this.hudText.setFontSize(layout.hud.fontSize);
+
+    this.logText.setPosition(layout.log.position.x, layout.log.position.y);
+    this.logText.setWordWrapWidth(layout.log.wrapWidth);
+    this.logText.setFontSize(layout.log.fontSize);
+
+    this.debugText.setPosition(layout.debug.position.x, layout.debug.position.y);
+    this.debugText.setWordWrapWidth(layout.debug.wrapWidth);
+
+    if (!this.portraitActionButtons.length) {
+      return;
+    }
+
+    const visible = layout.actionBar.visible;
+    const columns = 4;
+    const buttonWidth = (layout.actionBar.width - layout.actionBar.gap * (columns - 1)) / columns;
+
+    this.portraitActionButtons.forEach((button, index) => {
+      const row = Math.floor(index / columns);
+      const column = index % columns;
+      const x = layout.actionBar.position.x + column * (buttonWidth + layout.actionBar.gap);
+      const y = layout.actionBar.position.y + row * (layout.actionBar.buttonHeight + layout.actionBar.gap);
+
+      button.background
+        .setPosition(x, y)
+        .setSize(buttonWidth, layout.actionBar.buttonHeight)
+        .setVisible(visible);
+      button.label
+        .setPosition(x + buttonWidth / 2, y + layout.actionBar.buttonHeight / 2)
+        .setVisible(visible);
+    });
+  }
+
+  private refreshPortraitActionBar(): void {
+    const state = this.getPortraitActionState();
+    this.portraitActionButtons.forEach((button) => {
+      const meta = state.find((item) => item.id === button.action);
+      if (!meta) {
+        return;
+      }
+
+      button.label.setText(meta.label);
+      button.background.setFillStyle(
+        meta.selected ? 0x2a9d8f : meta.enabled ? 0x16213e : 0x3d405b,
+        meta.selected ? 1 : meta.enabled ? 0.96 : 0.55
+      );
+      button.background.setStrokeStyle(2, meta.selected ? 0xf4d35e : meta.enabled ? 0x6ea8fe : 0x6b7280, meta.enabled ? 0.85 : 0.35);
+      button.label.setAlpha(meta.enabled ? 1 : 0.45);
+      if (button.background.input) {
+        button.background.input.enabled = meta.enabled;
+      }
     });
   }
 
@@ -843,55 +972,64 @@ export class BattleScene extends Scene {
     const activeUnit = this.turnManager.getActiveUnit();
     const module = this.selectedUnit ? this.getSelectedModule(this.selectedUnit) : null;
     const missionState = this.missionManager.getState();
+    const isPortrait = this.isPortrait();
     const missionLines: string[] = [];
 
     if (missionState) {
       const template = missionState.template;
-      missionLines.push(`任务：${template.name}（${this.missionManager.getMissionType()}）`);
-      if (missionState.isReconnaissancePhase) {
-        missionLines.push(`[侦察] ${this.missionManager.getRemainingRevealSeconds()}秒`);
-        missionLines.push('[标记] 黄=目标 红=首领 金=遗物 绿=撤离');
-      } else if (missionState.isRevealed) {
-        missionLines.push(`[目标] ${this.missionManager.getCurrentObjectiveText()}`);
+      missionLines.push(`任务：${template.name}`);
+      missionLines.push(missionState.isRevealed
+        ? `目标：${this.missionManager.getCurrentObjectiveText()}`
+        : `侦察中：${this.missionManager.getRemainingRevealSeconds()}秒后揭晓`);
+      if (!isPortrait) {
         missionLines.push(`[标记] 黄=目标 红=首领 金=遗物 绿=${this.missionManager.isExtractionUnlocked() ? '可撤离' : '待解锁'}`);
       }
     } else {
       missionLines.push('任务：加载中...');
     }
 
-    const pressureLines: string[] = [];
-    if (missionState && missionState.isRevealed) {
-      pressureLines.push(`[环境] ${this.missionManager.getEndgamePressureText()}`);
-      pressureLines.push(`[撤离] ${this.missionManager.getExtractionStatusText()}`);
-      pressureLines.push(`[预警] ${this.missionManager.isCollapsed() ? '区域已崩溃，立即收口' : this.missionManager.getPressureStage() >= 1 ? '终局压力已启动，注意撤离时机' : '终局压力未启动'}`);
+    if (missionState?.isRevealed) {
+      missionLines.push(`环境：${this.missionManager.getEndgamePressureText()}`);
+      if (!isPortrait) {
+        missionLines.push(`撤离：${this.missionManager.getExtractionStatusText()}`);
+      }
     }
 
-    const isPortrait = this.isPortrait();
-    const controlHint = isPortrait
-      ? '操作：点单位→移动/行动'
-      : '按键：M移动  1普攻  2技能  3道具  4/C连携  D调试  E结束回合';
+    const guidance = getBattleSceneGuidanceText({
+      isPortrait,
+      activeUnitLabel: this.getUnitDisplayName(activeUnit),
+      selectedUnitLabel: this.selectedUnit ? this.getUnitDisplayName(this.selectedUnit) : null,
+      actionMode: this.actionMode,
+      canMove: this.selectedUnit?.canMove() ?? false,
+      hasPrimaryActionRemaining: this.selectedUnit?.hasPrimaryActionRemaining() ?? false,
+      hasToolOpportunityRemaining: this.selectedUnit?.hasToolOpportunityRemaining() ?? false,
+      hasComboModule: (this.selectedUnit?.getComboModules().length ?? 0) > 0,
+      hasSkillModule: (this.selectedUnit?.getActiveModules().length ?? 0) > 0,
+      hasToolModule: (this.selectedUnit?.getToolModules().length ?? 0) > 0,
+    });
     const squadHint = isPortrait
       ? `连携 A:${this.squadComboResource.getState(0).current}/${this.squadComboResource.getState(0).max} B:${this.squadComboResource.getState(1).current}/${this.squadComboResource.getState(1).max}`
       : `A队连携值：${this.squadComboResource.getState(0).current}/${this.squadComboResource.getState(0).max} ｜ B队连携值：${this.squadComboResource.getState(1).current}/${this.squadComboResource.getState(1).max}`;
 
     const lines = [
       ...missionLines,
-      ...pressureLines,
       `回合：${this.getUnitDisplayName(activeUnit)}`,
       `模式：${this.getModeLabel(this.actionMode)}${module ? ` / ${module.name}` : ''}`,
       this.selectedUnit
-        ? `移${this.selectedUnit.canMove() ? '✓' : '✗'} 主${this.selectedUnit.hasPrimaryActionRemaining() ? '✓' : '✗'} 道${this.selectedUnit.hasToolOpportunityRemaining() ? '✓' : '✗'}`
-        : '先点当前回合单位',
+        ? `行动：移${this.selectedUnit.canMove() ? '✓' : '✗'} 主${this.selectedUnit.hasPrimaryActionRemaining() ? '✓' : '✗'} 道${this.selectedUnit.hasToolOpportunityRemaining() ? '✓' : '✗'}`
+        : '行动：先点亮当前回合单位',
       squadHint,
       this.selectedUnit ? `状态：${this.selectedUnit.getStatusSummary().join('，') || '无'}` : '状态：无',
-      controlHint,
-      '标签：A队蓝，B队红',
+      guidance,
+      isPortrait ? '标记：蓝我方 红敌方' : '标签：A队蓝，B队红',
     ];
 
     this.hudText.setText(lines.join('\n'));
+    this.updateResponsiveLayout();
+    this.refreshPortraitActionBar();
     this.refreshDebugOverlay();
     if (message) {
-      this.logText.setText(message);
+      this.refreshLog(message);
     }
   }
 
@@ -931,7 +1069,11 @@ export class BattleScene extends Scene {
   }
 
   private refreshLog(message: string): void {
-    this.logText.setText(message);
+    const layout = this.getLayout();
+    const lines = message.split('\n');
+    const trimmed = this.isPortrait() ? lines.slice(0, layout.log.maxLines) : lines;
+    this.logText.setText(trimmed.join('\n'));
+    this.updateResponsiveLayout();
   }
 
   update(_time: number, delta: number): void {
@@ -964,6 +1106,8 @@ export class BattleScene extends Scene {
   private validatePortraitLayout(): void {
     const portrait = this.isPortrait();
     const minReadableWidth = 320;
+    this.updateResponsiveLayout();
+    this.refreshPortraitActionBar();
     if (portrait && this.scale.width < minReadableWidth) {
       // eslint-disable-next-line no-console
       console.warn(`[BattleScene] Portrait width ${this.scale.width}px is below readable threshold ${minReadableWidth}px`);

@@ -4,11 +4,11 @@
 TBD - created by archiving change mobile-multiplayer-tactics-roguelite-mvp. Update Purpose after archive.
 ## Requirements
 ### Requirement: Tactical battles SHALL resolve as unit-based squad turns
-The system SHALL run MVP battles as unit-by-unit tactical encounters between up to two squads, with each squad fielding up to three controllable units and optional neutral enemies or mission entities, while remaining playable inside the approved portrait-first mobile runtime shell.
+The system SHALL run MVP battles as unit-by-unit tactical encounters between up to two squads, with each squad fielding up to three controllable units and optional neutral enemies, mission entities, or approved AI-controlled actors.
 
-#### Scenario: Battle scene renders on a phone portrait viewport
-- **WHEN** a battle is shown through the approved mobile runtime shell
-- **THEN** the system SHALL keep the tactical map, active-turn guidance, and essential mission overlays usable within the portrait layout without breaking the underlying battle rules
+#### Scenario: AI-controlled unit takes a turn
+- **WHEN** an AI-controlled squad unit, boss, or approved non-player actor becomes active on the timeline
+- **THEN** the system SHALL resolve that turn through the shared planner while preserving the same movement, action, tool, and facing limits used by the battle system
 
 ### Requirement: Movement SHALL use Move and Jump to determine reachable tiles
 The system SHALL determine movement by combining horizontal range with vertical traversal limits so terrain height changes alter pathing and route quality.
