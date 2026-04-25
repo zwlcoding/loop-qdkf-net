@@ -66,6 +66,12 @@
 4. push 到 GitHub 后验证 Pages URL 可访问
 5. 之后每次完成并归档 change，都通过该 URL 直接验收手机效果
 
+## Verification Status
+
+- GitHub Actions workflow `Deploy frontend to GitHub Pages` 已成功运行：`24919106526`
+- 预览地址 `https://zwlcoding.github.io/loop-qdkf-net/` 已可打开，可作为后续手机验收入口
+- 当前部署基线对应 `main` 上的提交：`ab1cab8`
+
 ## Open Questions
 
 - 是否需要同时提供一个简单的“横屏不推荐”提示，还是直接强制竖屏布局即可

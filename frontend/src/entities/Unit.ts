@@ -50,8 +50,8 @@ export class Unit {
   };
   private toolUsesThisTurn: Map<string, number> = new Map();
 
-  constructor(scene: Scene, tileX: number, tileY: number, chassis: ChassisType, squad: number) {
-    this.id = `unit-${Unit.nextId++}`;
+  constructor(scene: Scene, tileX: number, tileY: number, chassis: ChassisType, squad: number, id?: string) {
+    this.id = id ?? `unit-${Unit.nextId++}`;
     this.scene = scene;
     this.tileX = tileX;
     this.tileY = tileY;
@@ -67,8 +67,10 @@ export class Unit {
     // Tint by squad
     if (squad === 0) {
       this.sprite.setTint(0x6699ff);
-    } else {
+    } else if (squad === 1) {
       this.sprite.setTint(0xff6666);
+    } else {
+      this.sprite.setTint(0xffc857);
     }
   }
 

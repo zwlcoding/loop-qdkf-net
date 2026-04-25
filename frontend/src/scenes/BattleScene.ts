@@ -9,6 +9,8 @@ import { Unit } from '../entities/Unit';
 import { StatusEffect } from '../entities/StatusEffect';
 import { contentLoader } from '../data/ContentLoader';
 import type { ModuleDefinition } from '../data/ModuleTypes';
+import { BotTurnPlanner, resolveActorProfile, type BotBattleState, type BotMissionSnapshot } from '../ai';
+import { getBattleSceneAiConfig, isBattleSceneAutoControlledSquad } from './BattleSceneAiConfig';
 
 type ActionMode = 'move' | 'basic' | 'skill' | 'combo' | 'tool';
 
@@ -33,6 +35,7 @@ export class BattleScene extends Scene {
   private readonly unitDisplayNames = new Map<string, string>();
   private readonly unitBadges = new Map<string, Phaser.GameObjects.Text>();
   private lastLoggedPressureStage = -1;
+  private resolvingBotTurn = false;
 
   constructor() {
     super({ key: 'BattleScene' });
@@ -141,6 +144,21 @@ export class BattleScene extends Scene {
       { unit: new Unit(this, 12, 4, 'controller', 1), label: 'B2 控场' },
       { unit: new Unit(this, 13, 6, 'vanguard', 1), label: 'B3 先锋' },
     ];
+    const aiConfig = getBattleSceneAiConfig(this.missionManager.getMissionId());
+
+    if (aiConfig.boss) {
+      seededUnits.push({
+        unit: new Unit(
+          this,
+          aiConfig.boss.spawnTile.x,
+          aiConfig.boss.spawnTile.y,
+          aiConfig.boss.chassis,
+          aiConfig.boss.squadId,
+          aiConfig.boss.unitId
+        ),
+        label: aiConfig.boss.label,
+      });
+    }
 
     seededUnits.forEach(({ unit, label }) => {
       this.units.push(unit);
@@ -153,11 +171,12 @@ export class BattleScene extends Scene {
 
   private createUnitBadge(unit: Unit, label: string): void {
     const pos = unit.getWorldPosition();
+    const badgeColor = unit.getSquad() === 0 ? '#1d4ed8cc' : unit.getSquad() === 1 ? '#b91c1ccc' : '#b45309cc';
     const badge = this.add.text(pos.x, pos.y - 34, label, {
       color: '#ffffff',
       fontFamily: 'monospace',
       fontSize: '12px',
-      backgroundColor: unit.getSquad() === 0 ? '#1d4ed8cc' : '#b91c1ccc',
+      backgroundColor: badgeColor,
       padding: { x: 4, y: 2 },
       align: 'center',
     }).setOrigin(0.5).setDepth(12);
@@ -216,6 +235,111 @@ export class BattleScene extends Scene {
     loadout.active.forEach((module) => unit.equipModule(module));
     loadout.combo.forEach((module) => unit.equipModule(module));
     loadout.tool.forEach((module) => unit.equipModule(module));
+  }
+
+  private isBotControlledUnit(unit: Unit | null): boolean {
+    return unit ? isBattleSceneAutoControlledSquad(unit.getSquad()) : false;
+  }
+
+  private buildBotMissionSnapshot(): BotMissionSnapshot | null {
+    const state = this.missionManager.getState();
+    if (!state) {
+      return null;
+    }
+
+    return {
+      id: state.template.id,
+      isRevealed: state.isRevealed,
+      bossUnitId: state.bossKill?.bossUnitId ?? null,
+      relicHolderUnitId: state.relicContest?.relicUnitId ?? null,
+      extractionUnlocked: state.extraction.isUnlocked,
+      isReversalPhase: state.coopThenReversal?.isReversed ?? false,
+      pressureStage: state.pressure.stage,
+    };
+  }
+
+  private buildBotBattleState(unit: Unit): BotBattleState {
+    const reachableTiles = unit.canMove()
+      ? this.gridMap.findReachableTiles(unit.getTileX(), unit.getTileY(), unit.getMove(), unit.getJump())
+      : [];
+
+    return {
+      actorId: unit.getId(),
+      squadId: unit.getSquad(),
+      turnNumber: this.missionManager.getElapsedSeconds(),
+      units: this.units.filter((candidate) => candidate.isAlive()).map((candidate) => ({
+        id: candidate.getId(),
+        role: candidate.getSquad() === 2 ? 'boss' : 'squad',
+        chassis: candidate.getChassis(),
+        squad: candidate.getSquad(),
+        tileX: candidate.getTileX(),
+        tileY: candidate.getTileY(),
+        hp: candidate.getHp(),
+        maxHp: candidate.getMaxHp(),
+        attack: candidate.getAttack(),
+        facing: candidate.getFacing(),
+        canMove: candidate.canMove(),
+        canAct: candidate.hasPrimaryActionRemaining(),
+        canUseTool: candidate.hasToolOpportunityRemaining(),
+        move: candidate.getMove(),
+        jump: candidate.getJump(),
+        activeModules: candidate.getActiveModules(),
+        comboModules: candidate.getComboModules(),
+        toolModules: candidate.getToolModules(),
+      })),
+      reachableTiles,
+      objectiveTiles: this.gridMap.getObjectiveTiles().map((tile) => ({ x: tile.x, y: tile.y })),
+      mission: this.buildBotMissionSnapshot(),
+      hasLineOfSight: (fromX, fromY, toX, toY) => this.gridMap.hasLineOfSight(fromX, fromY, toX, toY),
+      getHeightDifference: (fromX, fromY, toX, toY) => this.gridMap.getHeight(fromX, fromY) - this.gridMap.getHeight(toX, toY),
+    };
+  }
+
+  private applyBotActionMode(option: ActionOption): void {
+    if (option.type === 'basic-attack') {
+      this.actionMode = 'basic';
+      this.selectedModuleId = null;
+      return;
+    }
+
+    this.actionMode = 'skill';
+    this.selectedModuleId = option.moduleId ?? null;
+  }
+
+  private resolveBotTurn(unit: Unit): void {
+    const battleState = this.buildBotBattleState(unit);
+    const decision = BotTurnPlanner.chooseTurn(battleState, resolveActorProfile(battleState));
+    this.selectUnit(unit);
+
+    if (!decision) {
+      this.refreshLog(`[AI] ${this.getUnitDisplayName(unit)} 没有合法动作，结束回合。`);
+      this.endActiveTurn();
+      return;
+    }
+
+    this.refreshLog(`[AI:${decision.profile.id}] ${decision.candidate.summary}`);
+    const plannedMove = decision.candidate.action.move;
+    if (plannedMove) {
+      this.pathPreview = [...plannedMove.path];
+      this.moveUnitTo(unit, plannedMove.x, plannedMove.y);
+    }
+
+    const option = decision.candidate.action.option;
+    if (!option) {
+      this.endActiveTurn();
+      return;
+    }
+
+    this.applyBotActionMode(option);
+    const targetUnit = this.units.find((candidate) => candidate.getId() === option.targetId && candidate.isAlive());
+    if (!targetUnit) {
+      this.refreshLog(`[B队AI] 目标 ${option.targetId} 已失效，结束回合。`);
+      this.endActiveTurn();
+      return;
+    }
+
+    this.tryResolveUnitTarget(targetUnit);
+    this.endActiveTurn();
   }
 
   private setupInputHandlers(): void {
@@ -644,6 +768,7 @@ export class BattleScene extends Scene {
 
   private applyResolution(sourceUnit: Unit, targetUnit: Unit, result: ReturnType<typeof ActionResolver.resolvePrimaryAction>): void {
     const summaries: string[] = [result.summary];
+    const targetHpBefore = targetUnit.getHp();
 
     if (result.appliedDamage) {
       targetUnit.applyResolvedDamage(result.appliedDamage);
@@ -683,6 +808,14 @@ export class BattleScene extends Scene {
 
       if (knockback.hazardDamage > 0) {
         summaries.push(`落入危险地块${knockback.hazardType ? `（${knockback.hazardType}）` : ''}，额外伤害 ${knockback.hazardDamage}。`);
+      }
+    }
+
+    const bossState = this.missionManager.getBossKillState();
+    if (bossState && targetUnit.getId() === bossState.bossUnitId) {
+      const missionDamage = Math.max(0, targetHpBefore - targetUnit.getHp());
+      if (missionDamage > 0) {
+        this.missionManager.applyBossDamage(missionDamage);
       }
     }
 
@@ -813,6 +946,15 @@ export class BattleScene extends Scene {
     const activeUnit = this.turnManager.getActiveUnit();
     if (activeUnit && this.selectedUnit !== activeUnit) {
       this.selectUnit(activeUnit);
+    }
+
+    if (activeUnit && this.isBotControlledUnit(activeUnit) && !this.resolvingBotTurn) {
+      this.resolvingBotTurn = true;
+      try {
+        this.resolveBotTurn(activeUnit);
+      } finally {
+        this.resolvingBotTurn = false;
+      }
     }
 
     this.syncUnitBadges();
