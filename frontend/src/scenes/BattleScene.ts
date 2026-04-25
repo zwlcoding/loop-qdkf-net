@@ -62,7 +62,8 @@ export class BattleScene extends Scene {
 
   create(): void {
     this.activeSetup = this.resolveBattleSetup();
-    this.gridMap = new GridMap(this, 16, 12, 64);
+    const tileSize = this.calculateTileSize();
+    this.gridMap = new GridMap(this, 16, 12, tileSize);
     this.registry.set('gridMap', this.gridMap);
 
     this.turnManager = new TurnManager();
@@ -121,6 +122,17 @@ export class BattleScene extends Scene {
 
   private isPortrait(): boolean {
     return this.scale.height > this.scale.width;
+  }
+
+  private calculateTileSize(): number {
+    const mapWidth = 16;
+    const mapHeight = 12;
+    const defaultTileSize = 64;
+    if (!this.isPortrait()) {
+      return defaultTileSize;
+    }
+    const tileSize = Math.min(this.scale.width / mapWidth, this.scale.height / mapHeight) * 0.9;
+    return tileSize;
   }
 
   private getLayout() {
