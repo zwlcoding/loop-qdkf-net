@@ -21,41 +21,64 @@ export class SetupScene extends Scene {
     }
     this.missionIndex = Math.min(this.missionIndex, this.missionIds.length - 1);
 
-    this.add.text(this.scale.width / 2, 72, '本地双小队设置', {
+    const isPortrait = this.scale.height > this.scale.width;
+    const titleSize = isPortrait ? '22px' : '28px';
+    const textSize = isPortrait ? '13px' : '16px';
+    const hintSize = isPortrait ? '12px' : '15px';
+
+    this.add.text(this.scale.width / 2, isPortrait ? 48 : 72, '本地双小队设置', {
       color: '#f8fafc',
       fontFamily: 'monospace',
-      fontSize: '28px',
+      fontSize: titleSize,
       align: 'center',
     }).setOrigin(0.5);
 
-    this.summaryText = this.add.text(this.scale.width / 2, 160, '', {
+    this.summaryText = this.add.text(this.scale.width / 2, isPortrait ? 100 : 160, '', {
       color: '#e2e8f0',
       fontFamily: 'monospace',
-      fontSize: '16px',
+      fontSize: textSize,
       align: 'left',
       backgroundColor: '#111827cc',
-      padding: { x: 16, y: 16 },
-      wordWrap: { width: Math.min(680, this.scale.width - 64) },
+      padding: { x: 12, y: 12 },
+      wordWrap: { width: Math.min(isPortrait ? 340 : 680, this.scale.width - 32) },
     }).setOrigin(0.5, 0);
 
-    this.hintText = this.add.text(this.scale.width / 2, this.scale.height - 96, '', {
+    this.hintText = this.add.text(this.scale.width / 2, this.scale.height - (isPortrait ? 48 : 96), '', {
       color: '#93c5fd',
       fontFamily: 'monospace',
-      fontSize: '15px',
+      fontSize: hintSize,
       align: 'center',
     }).setOrigin(0.5);
 
-    this.createButton(this.scale.width / 2 - 220, this.scale.height - 160, '切任务', () => {
-      this.missionIndex = (this.missionIndex + 1) % this.missionIds.length;
-      this.refreshPreview();
-    });
-    this.createButton(this.scale.width / 2, this.scale.height - 160, '切编成', () => {
-      this.setupIndex = (this.setupIndex + 1) % 2;
-      this.refreshPreview();
-    });
-    this.createButton(this.scale.width / 2 + 220, this.scale.height - 160, '开始战斗', () => {
-      this.startBattle();
-    });
+    if (isPortrait) {
+      // 竖屏：按钮垂直排列
+      const btnY = this.scale.height - 200;
+      const btnGap = 60;
+      this.createButton(this.scale.width / 2, btnY, '切任务', () => {
+        this.missionIndex = (this.missionIndex + 1) % this.missionIds.length;
+        this.refreshPreview();
+      });
+      this.createButton(this.scale.width / 2, btnY + btnGap, '切编成', () => {
+        this.setupIndex = (this.setupIndex + 1) % 2;
+        this.refreshPreview();
+      });
+      this.createButton(this.scale.width / 2, btnY + btnGap * 2, '开始战斗', () => {
+        this.startBattle();
+      });
+    } else {
+      // 横屏：按钮水平排列
+      this.createButton(this.scale.width / 2 - 220, this.scale.height - 160, '切任务', () => {
+        this.missionIndex = (this.missionIndex + 1) % this.missionIds.length;
+        this.refreshPreview();
+      });
+      this.createButton(this.scale.width / 2, this.scale.height - 160, '切编成', () => {
+        this.setupIndex = (this.setupIndex + 1) % 2;
+        this.refreshPreview();
+      });
+      this.createButton(this.scale.width / 2 + 220, this.scale.height - 160, '开始战斗', () => {
+        this.startBattle();
+      });
+    }
 
     this.input.keyboard?.on('keydown-M', () => {
       this.missionIndex = (this.missionIndex + 1) % this.missionIds.length;
