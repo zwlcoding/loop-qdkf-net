@@ -1,4 +1,5 @@
 import { Scene } from 'phaser';
+import { resolvePublicAssetPath } from './AssetPath';
 
 /**
  * Asset Intake System
@@ -75,7 +76,7 @@ export class AssetIntake {
    */
   private loadImage(key: string, path: string): void {
     try {
-      this.scene.load.image(key, `/${path}`);
+      this.scene.load.image(key, resolvePublicAssetPath(path));
     } catch (error) {
       this.missingAssets.push(key);
       console.warn(`[AssetIntake] Failed to load ${key} from ${path}`);

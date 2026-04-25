@@ -1,6 +1,7 @@
 import { Scene } from 'phaser';
 import { contentLoader } from '../data/ContentLoader';
 import { AssetIntake } from '../core/AssetIntake';
+import { resolvePublicAssetPath } from '../core/AssetPath';
 
 export class BootScene extends Scene {
   private assetIntake!: AssetIntake;
@@ -13,11 +14,11 @@ export class BootScene extends Scene {
     this.assetIntake = new AssetIntake(this);
     this.assetIntake.loadAllAssets();
 
-    // Vite publicDir assets are served from the site root.
-    this.load.json('chassis-data', '/data/chassis.json');
-    this.load.json('modules-data', '/data/modules.json');
-    this.load.json('mission-templates', '/data/mission-templates.json');
-    this.load.json('map-events', '/data/map-events.json');
+    // Vite publicDir assets are served from BASE_URL in build and root in dev.
+    this.load.json('chassis-data', resolvePublicAssetPath('data/chassis.json'));
+    this.load.json('modules-data', resolvePublicAssetPath('data/modules.json'));
+    this.load.json('mission-templates', resolvePublicAssetPath('data/mission-templates.json'));
+    this.load.json('map-events', resolvePublicAssetPath('data/map-events.json'));
   }
 
   create(): void {
