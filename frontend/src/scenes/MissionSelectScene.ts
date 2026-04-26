@@ -1,4 +1,5 @@
 import { Scene } from 'phaser';
+import Phaser from 'phaser';
 import type { Mission, Reward, UnlockCondition } from '../data/MissionTypes';
 import missionsData from '../data/missions.json';
 import { ProgressManager } from '../core/ProgressManager';
@@ -116,10 +117,15 @@ export class MissionSelectScene extends Scene {
     }
 
     container.setSize(width, bg.height);
-    container.setInteractive({ useHandCursor: !isLocked });
+    container.setInteractive(
+      new Phaser.Geom.Rectangle(0, 0, width, bg.height),
+      Phaser.Geom.Rectangle.Contains
+    );
+    if (container.input) {
+      container.input.cursor = isLocked ? 'default' : 'pointer';
+    }
 
     if (!isLocked) {
-      container.setInteractive({ useHandCursor: true });
       container.on('pointerdown', () => {
         AudioManager.getInstance().playSfx('sfx-click');
         this.registry.set('selectedMission', mission);
