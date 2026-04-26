@@ -3,6 +3,7 @@ import { contentLoader } from '../data/ContentLoader';
 import { AssetIntake } from '../core/AssetIntake';
 import { resolvePublicAssetPath } from '../core/AssetPath';
 import { ProgressManager } from '../core/ProgressManager';
+import { AudioManager } from '../core/AudioManager';
 import type { Mission } from '../data/MissionTypes';
 import missionsData from '../data/missions.json';
 
@@ -17,6 +18,13 @@ export class BootScene extends Scene {
   preload(): void {
     this.assetIntake = new AssetIntake(this);
     this.assetIntake.loadAllAssets();
+
+    AudioManager.getInstance().preload(this);
+
+    this.load.image('particle-slash', resolvePublicAssetPath('particles/slash.png'));
+    this.load.image('particle-projectile', resolvePublicAssetPath('particles/projectile.png'));
+    this.load.image('particle-magic', resolvePublicAssetPath('particles/magic.png'));
+    this.load.image('particle-death', resolvePublicAssetPath('particles/death.png'));
 
     // Vite publicDir assets are served from BASE_URL in build and root in dev.
     this.load.json('chassis-data', resolvePublicAssetPath('data/chassis.json'));
@@ -52,6 +60,7 @@ export class BootScene extends Scene {
   }
 
   private showMainMenu(): void {
+    AudioManager.getInstance().playBgm('menu-bgm');
     this.cameras.main.setBackgroundColor('#0f172a');
 
     const isPortrait = this.scale.height > this.scale.width;

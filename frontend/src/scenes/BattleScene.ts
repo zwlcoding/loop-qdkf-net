@@ -7,6 +7,8 @@ import { SquadComboResource } from '../core/SquadComboResource';
 import { MissionManager } from '../core/MissionManager';
 import { ExtractionManager } from '../core/ExtractionManager';
 import { ChassisModuleManager } from '../core/ChassisModuleManager';
+import { AudioManager } from '../core/AudioManager';
+import { VisualEffects } from '../core/VisualEffects';
 import type { Mission } from '../data/MissionTypes';
 import { createBattleResultSummary, getBattleResultSummaryText, resolveWinningSquadId } from '../core/BattleResultSummary';
 import { BATTLE_SETUP_REGISTRY_KEY, createSeededBattleSetup, validateBattleSetup, type BattleSetup } from '../core/BattleSetup';
@@ -113,6 +115,8 @@ export class BattleScene extends Scene {
     this.setupInputHandlers();
     this.setupKeyboardShortcuts();
     this.refreshHud();
+
+    AudioManager.getInstance().playBgm('battle-bgm');
   }
 
   private resolveBattleSetup(): BattleSetup {
@@ -232,6 +236,7 @@ export class BattleScene extends Scene {
       }).setOrigin(0.5).setScrollFactor(0).setDepth(26);
 
       background.on('pointerdown', () => {
+        AudioManager.getInstance().playSfx('sfx-click');
         this.handlePortraitAction(action.id);
       });
 
@@ -310,6 +315,9 @@ export class BattleScene extends Scene {
     unit.setOnDeath(() => {
       hpBar.destroy();
       this.hpBars.delete(unit.getId());
+      AudioManager.getInstance().playSfx('sfx-death');
+      const pos = unit.getWorldPosition();
+      VisualEffects.spawnParticles(this, pos.x, pos.y, 'death');
     });
   }
 
@@ -569,6 +577,8 @@ export class BattleScene extends Scene {
     if (!state?.enabled) {
       return;
     }
+
+    AudioManager.getInstance().playSfx('sfx-confirm');
 
     if (action === 'cancel') {
       this.setActionMode('move');
@@ -938,6 +948,7 @@ export class BattleScene extends Scene {
       return;
     }
 
+    AudioManager.getInstance().playSfx('sfx-move');
     unit.moveTo(tileX, tileY);
     this.syncUnitBadges();
     this.clearReachableTiles();
@@ -1068,13 +1079,52 @@ export class BattleScene extends Scene {
     this.setActionMode('move');
   }
 
+  private resolveAttackSfx(sourceUnit: Unit, targetUnit: Unit): import('../core/AudioManager').SfxKey | null {
+    const dx = sourceUnit.getTileX() - targetUnit.getTileX();
+    const dy = sourceUnit.getTileY() - targetUnit.getTileY();
+    const distance = Math.max(Math.abs(dx), Math.abs(dy));
+
+    if (this.actionMode === 'basic') {
+      return distance > 1 ? 'sfx-ranged' : 'sfx-melee';
+    }
+    if (this.actionMode === 'skill' || this.actionMode === 'combo') {
+      return 'sfx-magic';
+    }
+    return null;
+  }
+
+  private resolveAttackParticleType(): import('../core/VisualEffects').ParticleType | null {
+    if (this.actionMode === 'basic') {
+      return 'slash';
+    }
+    if (this.actionMode === 'skill' || this.actionMode === 'combo') {
+      return 'magic';
+    }
+    return null;
+  }
+
   private applyResolution(sourceUnit: Unit, targetUnit: Unit, result: ReturnType<typeof ActionResolver.resolvePrimaryAction>): void {
     const summaries: string[] = [result.summary];
     const targetHpBefore = targetUnit.getHp();
 
+    const attackSfx = this.resolveAttackSfx(sourceUnit, targetUnit);
+    if (attackSfx) {
+      AudioManager.getInstance().playSfx(attackSfx);
+    }
+
+    const targetPos = targetUnit.getWorldPosition();
+    const particleType = this.resolveAttackParticleType();
+    if (particleType) {
+      VisualEffects.spawnParticles(this, targetPos.x, targetPos.y, particleType);
+    }
+
     if (result.appliedDamage) {
       targetUnit.applyResolvedDamage(result.appliedDamage);
       this.spawnDamageText(targetUnit, result.appliedDamage, 'damage');
+      VisualEffects.hitFlash(targetUnit.getSprite());
+      if (result.appliedDamage > 20) {
+        VisualEffects.screenShake(this);
+      }
     }
 
     if (result.appliedHealing) {

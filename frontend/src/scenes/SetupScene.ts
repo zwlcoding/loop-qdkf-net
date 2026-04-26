@@ -1,6 +1,7 @@
 import { Scene } from 'phaser';
 import { contentLoader } from '../data/ContentLoader';
 import { BATTLE_SETUP_REGISTRY_KEY, createSeededBattleSetup, validateBattleSetup } from '../core/BattleSetup';
+import { AudioManager } from '../core/AudioManager';
 
 export class SetupScene extends Scene {
   private missionIndex = 0;
@@ -55,27 +56,33 @@ export class SetupScene extends Scene {
       const btnY = this.scale.height - 200;
       const btnGap = 60;
       this.createButton(this.scale.width / 2, btnY, '切任务', () => {
+        AudioManager.getInstance().playSfx('sfx-click');
         this.missionIndex = (this.missionIndex + 1) % this.missionIds.length;
         this.refreshPreview();
       });
       this.createButton(this.scale.width / 2, btnY + btnGap, '切编成', () => {
+        AudioManager.getInstance().playSfx('sfx-click');
         this.setupIndex = (this.setupIndex + 1) % 2;
         this.refreshPreview();
       });
       this.createButton(this.scale.width / 2, btnY + btnGap * 2, '开始战斗', () => {
+        AudioManager.getInstance().playSfx('sfx-click');
         this.startBattle();
       });
     } else {
       // 横屏：按钮水平排列
       this.createButton(this.scale.width / 2 - 220, this.scale.height - 160, '切任务', () => {
+        AudioManager.getInstance().playSfx('sfx-click');
         this.missionIndex = (this.missionIndex + 1) % this.missionIds.length;
         this.refreshPreview();
       });
       this.createButton(this.scale.width / 2, this.scale.height - 160, '切编成', () => {
+        AudioManager.getInstance().playSfx('sfx-click');
         this.setupIndex = (this.setupIndex + 1) % 2;
         this.refreshPreview();
       });
       this.createButton(this.scale.width / 2 + 220, this.scale.height - 160, '开始战斗', () => {
+        AudioManager.getInstance().playSfx('sfx-click');
         this.startBattle();
       });
     }
@@ -156,6 +163,7 @@ export class SetupScene extends Scene {
   }
 
   private startBattle(): void {
+    AudioManager.getInstance().playSfx('sfx-confirm');
     const setup = this.buildPreviewSetup();
     const validation = validateBattleSetup(setup, {
       chassis: contentLoader.getAllChassis(),

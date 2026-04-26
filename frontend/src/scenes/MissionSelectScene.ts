@@ -2,6 +2,7 @@ import { Scene } from 'phaser';
 import type { Mission, Reward, UnlockCondition } from '../data/MissionTypes';
 import missionsData from '../data/missions.json';
 import { ProgressManager } from '../core/ProgressManager';
+import { AudioManager } from '../core/AudioManager';
 
 const DIFFICULTY_COLORS: Record<string, number> = {
   easy: 0x22c55e,
@@ -23,6 +24,7 @@ export class MissionSelectScene extends Scene {
   }
 
   create(): void {
+    AudioManager.getInstance().playBgm('menu-bgm');
     this.cameras.main.setBackgroundColor('#0f172a');
 
     const isPortrait = this.scale.height > this.scale.width;
@@ -119,6 +121,7 @@ export class MissionSelectScene extends Scene {
     if (!isLocked) {
       container.setInteractive({ useHandCursor: true });
       container.on('pointerdown', () => {
+        AudioManager.getInstance().playSfx('sfx-click');
         this.registry.set('selectedMission', mission);
         this.registry.set('selectedMap', mission.mapId);
         this.scene.start('SetupScene');

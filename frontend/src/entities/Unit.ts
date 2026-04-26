@@ -289,6 +289,7 @@ export class Unit {
   getActiveModules(): ModuleDefinition[] { return [...this.equippedModules.active]; }
   getComboModules(): ModuleDefinition[] { return [...this.equippedModules.combo]; }
   getToolModules(): ModuleDefinition[] { return [...this.equippedModules.tool]; }
+  getSprite(): GameObjects.Image { return this.sprite; }
   
   setFacing(direction: FacingDirection): void {
     this.facing = direction;
