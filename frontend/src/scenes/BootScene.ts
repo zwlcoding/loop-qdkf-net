@@ -23,8 +23,8 @@ export class BootScene extends Scene {
 
     this.load.image('particle-slash', resolvePublicAssetPath('particles/slash.png'));
     this.load.image('particle-projectile', resolvePublicAssetPath('particles/projectile.png'));
-    this.load.image('particle-magic', resolvePublicAssetPath('particles/magic.png'));
-    this.load.image('particle-death', resolvePublicAssetPath('particles/death.png'));
+    this.load.image('particle-magic', resolvePublicAssetPath('particles/magic-spark.png'));
+    this.load.image('particle-death', resolvePublicAssetPath('particles/death-burst.png'));
 
     // Vite publicDir assets are served from BASE_URL in build and root in dev.
     this.load.json('chassis-data', resolvePublicAssetPath('data/chassis.json'));
