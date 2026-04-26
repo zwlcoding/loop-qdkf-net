@@ -1,3 +1,46 @@
+export interface Mission {
+  id: string;
+  name: string;
+  description: string;
+  difficulty: "easy" | "normal" | "hard";
+  rewards: Reward[];
+  unlockCondition?: UnlockCondition;
+  extractionTurn: number; // earliest turn to extract
+  mapId: string;
+}
+
+export interface Reward {
+  type: "resource" | "experience" | "unlock";
+  itemId: string;
+  amount: number;
+}
+
+export interface UnlockCondition {
+  type: "mission_complete" | "level_reach";
+  targetId: string;
+  targetValue: number;
+}
+
+export interface RunProgress {
+  missionId: string;
+  currentTurn: number;
+  extractionAvailable: boolean;
+  squadStates: SquadState[];
+  collectedRewards: Reward[];
+  chassisUnlocked: string[];
+  modulesUnlocked: string[];
+  version: number;
+}
+
+export interface SquadState {
+  unitId: string;
+  chassisId: string;
+  currentHp: number;
+  maxHp: number;
+  modules: string[];
+}
+
+// Legacy types retained for backward compatibility with existing code
 export interface MissionObjective {
   type: string;
   target: string;

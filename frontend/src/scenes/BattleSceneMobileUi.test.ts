@@ -40,6 +40,7 @@ describe('BattleSceneMobileUi', () => {
       'combo',
       'cancel',
       'endTurn',
+      'extract',
     ]);
     expect(actions.filter((action) => action.enabled).map((action) => action.id)).toEqual([
       'move',
@@ -100,5 +101,6 @@ describe('BattleSceneMobileUi', () => {
     expect(actions.find((action) => action.id === 'combo')?.enabled).toBe(false);
     expect(actions.find((action) => action.id === 'cancel')?.enabled).toBe(true);
     expect(actions.find((action) => action.id === 'endTurn')?.enabled).toBe(true);
+    expect(actions.find((action) => action.id === 'extract')?.enabled).toBe(false);
   });
 });

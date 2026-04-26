@@ -3,6 +3,10 @@ import type { Scene } from 'phaser';
 import { Unit } from './Unit';
 import { StatusEffect } from './StatusEffect';
 
+const makeUnit = (chassis: Parameters<typeof Unit.prototype.constructor>[3] = 'vanguard', squad = 0): Unit => {
+  return new Unit(makeScene(), 1, 1, chassis, squad);
+};
+
 const makeScene = (): Scene => {
   const image = {
     setDisplaySize: vi.fn(),
@@ -89,5 +93,139 @@ describe('Unit status behavior', () => {
     unit.addStatus(new StatusEffect('poison', 3, 2));
 
     expect(unit.getStatusSummary()).toEqual(['迟缓 2回合', '中毒 3回合(每回合10)']);
+  });
+});
+
+describe('Unit HP events', () => {
+  it('fires onHpChanged when takeDamage is called', () => {
+    const unit = makeUnit();
+    const hpChanged = vi.fn();
+    unit.setOnHpChanged(hpChanged);
+
+    unit.takeDamage(10);
+
+    expect(hpChanged).toHaveBeenCalledTimes(1);
+    expect(hpChanged).toHaveBeenLastCalledWith(unit.getHp(), unit.getMaxHp());
+  });
+
+  it('fires onHpChanged when heal is called', () => {
+    const unit = makeUnit();
+    unit.takeDamage(20);
+    const hpChanged = vi.fn();
+    unit.setOnHpChanged(hpChanged);
+
+    unit.heal(10);
+
+    expect(hpChanged).toHaveBeenCalledTimes(1);
+    expect(hpChanged).toHaveBeenLastCalledWith(unit.getHp(), unit.getMaxHp());
+  });
+
+  it('fires onHpChanged when applyResolvedDamage is called', () => {
+    const unit = makeUnit();
+    const hpChanged = vi.fn();
+    unit.setOnHpChanged(hpChanged);
+
+    unit.applyResolvedDamage(15);
+
+    expect(hpChanged).toHaveBeenCalledTimes(1);
+    expect(hpChanged).toHaveBeenLastCalledWith(unit.getHp(), unit.getMaxHp());
+  });
+
+  it('fires onHpChanged when applyStatusDamage is called', () => {
+    const unit = makeUnit();
+    const hpChanged = vi.fn();
+    unit.setOnHpChanged(hpChanged);
+
+    unit.applyStatusDamage(12);
+
+    expect(hpChanged).toHaveBeenCalledTimes(1);
+    expect(hpChanged).toHaveBeenLastCalledWith(unit.getHp(), unit.getMaxHp());
+  });
+
+  it('fires onDeath when HP reaches 0 via takeDamage', () => {
+    const unit = makeUnit();
+    const death = vi.fn();
+    unit.setOnDeath(death);
+
+    unit.takeDamage(9999);
+
+    expect(death).toHaveBeenCalledTimes(1);
+  });
+
+  it('fires onDeath when HP reaches 0 via applyResolvedDamage', () => {
+    const unit = makeUnit();
+    const death = vi.fn();
+    unit.setOnDeath(death);
+
+    unit.applyResolvedDamage(9999);
+
+    expect(death).toHaveBeenCalledTimes(1);
+  });
+
+  it('fires onDeath when HP reaches 0 via applyStatusDamage', () => {
+    const unit = makeUnit();
+    const death = vi.fn();
+    unit.setOnDeath(death);
+
+    unit.applyStatusDamage(9999);
+
+    expect(death).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fire onDeath if unit survives', () => {
+    const unit = makeUnit();
+    const death = vi.fn();
+    unit.setOnDeath(death);
+
+    unit.takeDamage(5);
+
+    expect(death).not.toHaveBeenCalled();
+  });
+
+  it('does not fire onHpChanged after callback is removed', () => {
+    const unit = makeUnit();
+    const hpChanged = vi.fn();
+    unit.setOnHpChanged(hpChanged);
+    unit.setOnHpChanged(null);
+
+    unit.takeDamage(10);
+
+    expect(hpChanged).not.toHaveBeenCalled();
+  });
+
+  it('passes correct currentHp and maxHp values in onHpChanged', () => {
+    const unit = makeUnit();
+    const maxHp = unit.getMaxHp();
+    unit.takeDamage(20);
+    const currentHp = unit.getHp();
+
+    const hpChanged = vi.fn();
+    unit.setOnHpChanged(hpChanged);
+    unit.heal(5);
+
+    expect(hpChanged).toHaveBeenLastCalledWith(currentHp + 5, maxHp);
+  });
+
+  it('does not fire onDeath more than once when damage is applied multiple times after death', () => {
+    const unit = makeUnit();
+    const death = vi.fn();
+    unit.setOnDeath(death);
+
+    unit.applyResolvedDamage(9999);
+    unit.applyResolvedDamage(10);
+    unit.applyResolvedDamage(5);
+
+    expect(death).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fire onDeath more than once when takeDamage is called after HP is already 0', () => {
+    const unit = makeUnit();
+    const death = vi.fn();
+    unit.setOnDeath(death);
+
+    unit.takeDamage(9999);
+    unit.takeDamage(10);
+
+    expect(death).toHaveBeenCalledTimes(1);
   });
 });

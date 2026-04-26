@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { contentLoader } from './ContentLoader';
 import chassisJson from '../../assets/data/chassis.json';
+import {
+  CHASSIS_TYPES,
+  getChassisType,
+  getAllChassisTypes,
+  type ChassisType,
+  type ModuleSlot,
+  type Loadout,
+  type UnlockCondition,
+} from './ChassisTypes';
 
 describe('ChassisDefinitions', () => {
   it('loads exactly five MVP chassis from JSON', () => {
@@ -76,5 +85,101 @@ describe('ChassisDefinitions', () => {
       expect(c.slotBias.combo).toBe(1);
       expect(c.slotBias.tool).toBe(1);
     }
+  });
+});
+
+describe('ChassisType data models', () => {
+  it('exports CHASSIS_TYPES with exactly 3 entries', () => {
+    expect(CHASSIS_TYPES).toHaveLength(3);
+  });
+
+  it('has light, heavy, and balanced chassis IDs', () => {
+    const ids = CHASSIS_TYPES.map(c => c.id);
+    expect(ids).toContain('light');
+    expect(ids).toContain('heavy');
+    expect(ids).toContain('balanced');
+  });
+
+  it('validates ChassisType interface fields for all entries', () => {
+    for (const c of CHASSIS_TYPES) {
+      expect(typeof c.id).toBe('string');
+      expect(typeof c.name).toBe('string');
+      expect(typeof c.description).toBe('string');
+      expect(typeof c.baseStats.hp).toBe('number');
+      expect(typeof c.baseStats.move).toBe('number');
+      expect(typeof c.baseStats.jump).toBe('number');
+      expect(typeof c.baseStats.attack).toBe('number');
+      expect(typeof c.baseStats.defense).toBe('number');
+      expect(Array.isArray(c.moduleSlots)).toBe(true);
+      for (const slot of c.moduleSlots) {
+        expect(typeof slot.id).toBe('string');
+        expect(['weapon', 'armor', 'skill', 'utility']).toContain(slot.type);
+      }
+    }
+  });
+
+  it('light chassis has high move, low defense, 3 slots', () => {
+    const light = getChassisType('light')!;
+    expect(light.baseStats.move).toBeGreaterThan(3);
+    expect(light.baseStats.defense).toBeLessThan(6);
+    expect(light.moduleSlots).toHaveLength(3);
+  });
+
+  it('heavy chassis has low move, high defense, 4 slots', () => {
+    const heavy = getChassisType('heavy')!;
+    expect(heavy.baseStats.move).toBeLessThan(3);
+    expect(heavy.baseStats.defense).toBeGreaterThan(10);
+    expect(heavy.moduleSlots).toHaveLength(4);
+  });
+
+  it('balanced chassis has medium stats, 3 slots', () => {
+    const balanced = getChassisType('balanced')!;
+    expect(balanced.baseStats.move).toBe(3);
+    expect(balanced.baseStats.defense).toBeGreaterThanOrEqual(6);
+    expect(balanced.baseStats.defense).toBeLessThanOrEqual(10);
+    expect(balanced.moduleSlots).toHaveLength(3);
+  });
+
+  it('getChassisType returns undefined for unknown id', () => {
+    expect(getChassisType('unknown')).toBeUndefined();
+  });
+
+  it('getAllChassisTypes returns all chassis', () => {
+    expect(getAllChassisTypes()).toEqual(CHASSIS_TYPES);
+  });
+
+  it('supports optional unlockCondition', () => {
+    const light = getChassisType('light')!;
+    expect(light.unlockCondition).toBeDefined();
+    expect(light.unlockCondition!.type).toBe('story_progress');
+    expect(typeof light.unlockCondition!.target).toBe('string');
+
+    const balanced = getChassisType('balanced')!;
+    expect(balanced.unlockCondition).toBeUndefined();
+  });
+
+  it('validates Loadout interface shape', () => {
+    const loadout: Loadout = {
+      unitId: 'unit_01',
+      chassisId: 'light',
+      equippedModules: {
+        light_w1: 'mod_laser_rifle',
+        light_a1: 'mod_ceramic_plate',
+      },
+    };
+    expect(typeof loadout.unitId).toBe('string');
+    expect(typeof loadout.chassisId).toBe('string');
+    expect(typeof loadout.equippedModules).toBe('object');
+  });
+
+  it('validates UnlockCondition interface shape', () => {
+    const cond: UnlockCondition = {
+      type: 'mission_clear',
+      target: 'mission_01',
+      value: 1,
+    };
+    expect(cond.type).toBe('mission_clear');
+    expect(cond.target).toBe('mission_01');
+    expect(cond.value).toBe(1);
   });
 });

@@ -1,11 +1,12 @@
 import { Scene, GameObjects } from 'phaser';
+import { getTerrainType } from '../data/TerrainTypes';
 
 export interface TileData {
   x: number;
   y: number;
   height: number;
   walkable: boolean;
-  terrain: 'grass' | 'dirt' | 'stone' | 'water';
+  terrain: 'grass' | 'dirt' | 'stone' | 'water' | 'plain' | 'mountain' | 'urban' | 'forest';
   terrainFlags: string[];
   hazardType?: string;
   objectiveId?: string;
@@ -34,7 +35,8 @@ export class GridMap {
   private tileSize: number;
   private width: number;
   private height: number;
-  private tileSprites: GameObjects.Image[][];
+  private tileGraphics: GameObjects.Graphics;
+  private tileIconTexts: GameObjects.Text[][];
   private highlightGraphics: GameObjects.Graphics;
   private pathGraphics: GameObjects.Graphics;
   private markerGraphics: GameObjects.Graphics;
@@ -47,7 +49,9 @@ export class GridMap {
     this.height = height;
     this.tileSize = tileSize;
     this.tiles = [];
-    this.tileSprites = [];
+    this.tileGraphics = scene.add.graphics();
+    this.tileGraphics.setDepth(1);
+    this.tileIconTexts = [];
     this.highlightGraphics = scene.add.graphics();
     this.pathGraphics = scene.add.graphics();
     this.markerGraphics = scene.add.graphics();
@@ -66,7 +70,7 @@ export class GridMap {
   private generateMap(): void {
     for (let x = 0; x < this.width; x++) {
       this.tiles[x] = [];
-      this.tileSprites[x] = [];
+      this.tileIconTexts[x] = [];
       for (let y = 0; y < this.height; y++) {
         const height = Math.floor(Math.random() * 3);
         const terrain = this.determineTerrain(x, y);
@@ -90,10 +94,11 @@ export class GridMap {
 
   private determineTerrain(_x: number, _y: number): TileData['terrain'] {
     const noise = Math.random();
-    if (noise < 0.1) return 'water';
-    if (noise < 0.4) return 'dirt';
-    if (noise < 0.7) return 'stone';
-    return 'grass';
+    if (noise < 0.08) return 'water';
+    if (noise < 0.25) return 'mountain';
+    if (noise < 0.38) return 'urban';
+    if (noise < 0.55) return 'forest';
+    return 'plain';
   }
 
   private getTerrainFlags(terrain: TileData['terrain']): string[] {
@@ -102,6 +107,10 @@ export class GridMap {
       dirt: ['natural', 'rough'],
       stone: ['obstacle', 'rough'],
       water: ['hazard', 'impassable'],
+      plain: ['natural'],
+      mountain: ['obstacle', 'rough'],
+      urban: ['obstacle'],
+      forest: ['natural', 'rough'],
     };
     return flags[terrain];
   }
@@ -110,26 +119,75 @@ export class GridMap {
     const offsetX = (this.scene.scale.width - this.width * this.tileSize) / 2;
     const offsetY = (this.scene.scale.height - this.height * this.tileSize) / 2;
 
+    this.tileGraphics.clear();
+
     for (let x = 0; x < this.width; x++) {
       for (let y = 0; y < this.height; y++) {
         const tile = this.tiles[x][y];
         const px = offsetX + x * this.tileSize;
         const py = offsetY + y * this.tileSize - tile.height * 16;
 
-        const sprite = this.scene.add.image(px, py, `tile-${tile.terrain}`);
-        sprite.setOrigin(0, 0);
-        sprite.setDisplaySize(this.tileSize, this.tileSize);
-        sprite.setAlpha(tile.walkable ? 1 : 0.5);
+        const terrainInfo = getTerrainType(tile.terrain);
+        const colorHex = terrainInfo?.color ?? this.getFallbackTerrainColor(tile.terrain);
+        const color = parseInt(colorHex.replace('#', '0x'), 16);
 
-        if (tile.hazardType) {
-          sprite.setTint(0xffb703);
-        } else if (tile.objectiveId) {
-          sprite.setTint(0xd8b4fe);
+        // Draw tile background with terrain color
+        this.tileGraphics.fillStyle(color, 1);
+        this.tileGraphics.fillRect(px, py, this.tileSize, this.tileSize);
+
+        // Draw tile border
+        this.tileGraphics.lineStyle(1, 0x000000, 0.2);
+        this.tileGraphics.strokeRect(px, py, this.tileSize, this.tileSize);
+
+        // Elevation shading
+        if (tile.height > 0) {
+          this.tileGraphics.fillStyle(0x000000, 0.08 * tile.height);
+          this.tileGraphics.fillRect(px, py, this.tileSize, this.tileSize);
         }
 
-        this.tileSprites[x][y] = sprite;
+        // Non-walkable overlay
+        if (!tile.walkable) {
+          this.tileGraphics.fillStyle(0x000000, 0.35);
+          this.tileGraphics.fillRect(px, py, this.tileSize, this.tileSize);
+        }
+
+        // Hazard / objective tint
+        if (tile.hazardType) {
+          this.tileGraphics.fillStyle(0xffb703, 0.35);
+          this.tileGraphics.fillRect(px, py, this.tileSize, this.tileSize);
+        } else if (tile.objectiveId) {
+          this.tileGraphics.fillStyle(0xd8b4fe, 0.35);
+          this.tileGraphics.fillRect(px, py, this.tileSize, this.tileSize);
+        }
+
+        // Terrain icon
+        const icon = terrainInfo?.icon ?? this.getFallbackTerrainIcon(tile.terrain);
+        const fontSize = Math.max(10, Math.floor(this.tileSize * 0.4));
+        const text = this.scene.add.text(px + this.tileSize / 2, py + this.tileSize / 2, icon, {
+          fontSize: `${fontSize}px`,
+        }).setOrigin(0.5).setDepth(2);
+
+        this.tileIconTexts[x][y] = text;
       }
     }
+  }
+
+  private getFallbackTerrainColor(terrain: string): string {
+    const map: Record<string, string> = {
+      grass: '#90EE90',
+      dirt: '#8B7355',
+      stone: '#708090',
+    };
+    return map[terrain] ?? '#888888';
+  }
+
+  private getFallbackTerrainIcon(terrain: string): string {
+    const map: Record<string, string> = {
+      grass: '🌿',
+      dirt: '🟫',
+      stone: '🪨',
+    };
+    return map[terrain] ?? '❓';
   }
 
   getTile(x: number, y: number): TileData | null {
@@ -145,6 +203,40 @@ export class GridMap {
   getHeight(x: number, y: number): number {
     const tile = this.getTile(x, y);
     return tile ? tile.height : -1;
+  }
+
+  /**
+   * Get terrain type info for a tile
+   */
+  getTerrainInfo(x: number, y: number) {
+    const tile = this.getTile(x, y);
+    if (!tile) return undefined;
+    return getTerrainType(tile.terrain);
+  }
+
+  /**
+   * Get move cost for a tile (defaults to 1 if terrain not found)
+   */
+  getMoveCost(x: number, y: number): number {
+    const info = this.getTerrainInfo(x, y);
+    return info?.moveCost ?? 1;
+  }
+
+  /**
+   * Get cover value for a tile (defaults to 0)
+   */
+  getCoverValue(x: number, y: number): number {
+    const info = this.getTerrainInfo(x, y);
+    return info?.coverValue ?? 0;
+  }
+
+  /**
+   * Check if terrain at tile blocks vision
+   */
+  terrainBlocksVision(x: number, y: number): boolean {
+    const info = this.getTerrainInfo(x, y);
+    if (info) return info.blocksVision;
+    return false;
   }
 
   getTileWorldPosition(x: number, y: number): { x: number; y: number } {
@@ -219,11 +311,14 @@ export class GridMap {
         const heightDiff = Math.abs(neighbor.height - currentTile.height);
         if (heightDiff > jump) continue;
 
+        const moveCost = this.getMoveCost(nx, ny);
+        if (current.remainingMove < moveCost) continue;
+
         visited.add(key);
         queue.push({
           x: nx,
           y: ny,
-          remainingMove: current.remainingMove - 1,
+          remainingMove: current.remainingMove - moveCost,
           path: [...current.path, { x: nx, y: ny }]
         });
       }
@@ -365,7 +460,10 @@ export class GridMap {
       if (x === toX && y === toY) break;
 
       const tile = this.getTile(x, y);
-      if (!tile || tile.terrainFlags.includes('obstacle')) {
+      if (!tile) {
+        return false;
+      }
+      if (tile.terrainFlags.includes('obstacle') || this.terrainBlocksVision(x, y)) {
         return false;
       }
     }

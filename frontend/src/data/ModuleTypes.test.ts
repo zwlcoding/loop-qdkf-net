@@ -2,6 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { contentLoader } from './ContentLoader';
 import modulesJson from '../../assets/data/modules.json';
 import type { ModuleDefinition } from './ModuleTypes';
+import {
+  MODULE_ITEMS,
+  getModuleItem,
+  getModulesBySlotType,
+  getAllModuleItems,
+  type ModuleItem,
+  type ProgressionModuleEffect,
+  type ModuleSlot,
+  type ModuleSlotType,
+} from './ModuleTypes';
 
 describe('ModuleDefinitions', () => {
   it('covers all four categories: active, passive, combo, tool', () => {
@@ -110,5 +120,90 @@ describe('ModuleDefinitions', () => {
       expect(m.participationRules).toBeUndefined();
       expect(m.usesPerTurn).toBeUndefined();
     }
+  });
+});
+
+describe('ModuleItem data models', () => {
+  it('exports MODULE_ITEMS with 8-10 entries', () => {
+    expect(MODULE_ITEMS.length).toBeGreaterThanOrEqual(8);
+    expect(MODULE_ITEMS.length).toBeLessThanOrEqual(10);
+  });
+
+  it('has at least 2 weapons, 2 armors, 2 skills, 2 utilities', () => {
+    const counts: Record<ModuleSlotType, number> = {
+      weapon: 0,
+      armor: 0,
+      skill: 0,
+      utility: 0,
+    };
+    for (const m of MODULE_ITEMS) {
+      counts[m.slotType]++;
+    }
+    expect(counts.weapon).toBeGreaterThanOrEqual(2);
+    expect(counts.armor).toBeGreaterThanOrEqual(2);
+    expect(counts.skill).toBeGreaterThanOrEqual(2);
+    expect(counts.utility).toBeGreaterThanOrEqual(2);
+  });
+
+  it('validates ModuleItem interface fields for all entries', () => {
+    for (const m of MODULE_ITEMS) {
+      expect(typeof m.id).toBe('string');
+      expect(typeof m.name).toBe('string');
+      expect(typeof m.slotType).toBe('string');
+      expect(['weapon', 'armor', 'skill', 'utility']).toContain(m.slotType);
+      expect(typeof m.description).toBe('string');
+      expect(Array.isArray(m.effects)).toBe(true);
+      for (const e of m.effects) {
+        expect(['stat_bonus', 'ability', 'passive']).toContain(e.type);
+        expect(typeof e.target).toBe('string');
+        expect(typeof e.value === 'number' || typeof e.value === 'string').toBe(true);
+      }
+    }
+  });
+
+  it('getModuleItem returns correct module by id', () => {
+    const mod = getModuleItem('mod_laser_rifle');
+    expect(mod).toBeDefined();
+    expect(mod!.name).toBe('Laser Rifle');
+    expect(mod!.slotType).toBe('weapon');
+  });
+
+  it('getModuleItem returns undefined for unknown id', () => {
+    expect(getModuleItem('unknown_module')).toBeUndefined();
+  });
+
+  it('getModulesBySlotType filters correctly', () => {
+    const weapons = getModulesBySlotType('weapon');
+    expect( weapons.every(m => m.slotType === 'weapon')).toBe(true);
+
+    const armors = getModulesBySlotType('armor');
+    expect(armors.every(m => m.slotType === 'armor')).toBe(true);
+  });
+
+  it('getAllModuleItems returns all modules', () => {
+    expect(getAllModuleItems()).toEqual(MODULE_ITEMS);
+  });
+
+  it('validates ProgressionModuleEffect interface shape', () => {
+    const effect: ProgressionModuleEffect = {
+      type: 'stat_bonus',
+      target: 'attack',
+      value: 5,
+    };
+    expect(effect.type).toBe('stat_bonus');
+    expect(effect.target).toBe('attack');
+    expect(effect.value).toBe(5);
+  });
+
+  it('validates ModuleSlot interface shape', () => {
+    const slot: ModuleSlot = {
+      id: 'slot_01',
+      type: 'weapon',
+      name: 'Main Weapon',
+      description: 'Primary weapon slot',
+      effects: [{ type: 'stat_bonus', target: 'attack', value: 2 }],
+    };
+    expect(slot.type).toBe('weapon');
+    expect(slot.effects).toHaveLength(1);
   });
 });

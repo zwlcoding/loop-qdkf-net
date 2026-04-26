@@ -49,6 +49,8 @@ export class Unit {
     tool: [],
   };
   private toolUsesThisTurn: Map<string, number> = new Map();
+  private onHpChanged: ((currentHp: number, maxHp: number) => void) | null = null;
+  private onDeath: (() => void) | null = null;
 
   constructor(scene: Scene, tileX: number, tileY: number, chassis: ChassisType, squad: number, id?: string) {
     this.id = id ?? `unit-${Unit.nextId++}`;
@@ -292,20 +294,44 @@ export class Unit {
     this.facing = direction;
   }
 
+  setOnHpChanged(callback: ((currentHp: number, maxHp: number) => void) | null): void {
+    this.onHpChanged = callback;
+  }
+
+  setOnDeath(callback: (() => void) | null): void {
+    this.onDeath = callback;
+  }
+
+  private notifyHpChanged(): void {
+    if (this.onHpChanged) {
+      this.onHpChanged(this.stats.hp, this.stats.maxHp);
+    }
+  }
+
+  private notifyDeath(): void {
+    if (this.onDeath) {
+      this.onDeath();
+    }
+  }
+
   takeDamage(amount: number): void {
+    const wasAlive = this.isAlive();
     const actualDamage = Math.max(1, amount - this.stats.defense);
     this.stats.hp = Math.max(0, this.stats.hp - actualDamage);
-    
-    if (this.stats.hp <= 0) {
+    this.notifyHpChanged();
+
+    if (wasAlive && this.stats.hp <= 0) {
       this.die();
     }
   }
 
   heal(amount: number): void {
     this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + amount);
+    this.notifyHpChanged();
   }
 
   applyResolvedDamage(amount: number): void {
+    const wasAlive = this.isAlive();
     let adjustedDamage = Math.max(0, Math.round(amount));
 
     for (const status of this.statuses) {
@@ -317,16 +343,19 @@ export class Unit {
     }
 
     this.stats.hp = Math.max(0, this.stats.hp - adjustedDamage);
+    this.notifyHpChanged();
 
-    if (this.stats.hp <= 0) {
+    if (wasAlive && this.stats.hp <= 0) {
       this.die();
     }
   }
 
   applyStatusDamage(amount: number): void {
+    const wasAlive = this.isAlive();
     this.stats.hp = Math.max(0, this.stats.hp - Math.max(0, Math.round(amount)));
+    this.notifyHpChanged();
 
-    if (this.stats.hp <= 0) {
+    if (wasAlive && this.stats.hp <= 0) {
       this.die();
     }
   }
@@ -334,6 +363,7 @@ export class Unit {
   private die(): void {
     this.sprite.setAlpha(0.5);
     this.sprite.setTint(0x666666);
+    this.notifyDeath();
   }
 
   addStatus(status: StatusEffect): void {

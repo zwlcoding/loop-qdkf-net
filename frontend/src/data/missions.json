@@ -1,0 +1,84 @@
+{
+  "missions": [
+    {
+      "id": "grassland-patrol",
+      "name": "Grassland Patrol",
+      "description": "A routine patrol through the open grasslands. Ideal for new recruits.",
+      "difficulty": "easy",
+      "rewards": [
+        {
+          "type": "resource",
+          "itemId": "credits",
+          "amount": 100
+        },
+        {
+          "type": "experience",
+          "itemId": "squad_xp",
+          "amount": 50
+        }
+      ],
+      "extractionTurn": 3,
+      "mapId": "grassland-01"
+    },
+    {
+      "id": "mountain-assault",
+      "name": "Mountain Assault",
+      "description": "Assault an enemy outpost in the treacherous mountain passes.",
+      "difficulty": "normal",
+      "rewards": [
+        {
+          "type": "resource",
+          "itemId": "credits",
+          "amount": 250
+        },
+        {
+          "type": "experience",
+          "itemId": "squad_xp",
+          "amount": 120
+        },
+        {
+          "type": "unlock",
+          "itemId": "module_reinforced_plating",
+          "amount": 1
+        }
+      ],
+      "unlockCondition": {
+        "type": "mission_complete",
+        "targetId": "grassland-patrol",
+        "targetValue": 1
+      },
+      "extractionTurn": 5,
+      "mapId": "mountain-01"
+    },
+    {
+      "id": "urban-siege",
+      "name": "Urban Siege",
+      "description": "Siege a heavily fortified urban zone. Only experienced squads need apply.",
+      "difficulty": "hard",
+      "rewards": [
+        {
+          "type": "resource",
+          "itemId": "credits",
+          "amount": 500
+        },
+        {
+          "type": "experience",
+          "itemId": "squad_xp",
+          "amount": 250
+        },
+        {
+          "type": "unlock",
+          "itemId": "chassis_siege_breaker",
+          "amount": 1
+        }
+      ],
+      "unlockCondition": {
+        "type": "mission_complete",
+        "targetId": "mountain-assault",
+        "targetValue": 1
+      },
+      "extractionTurn": 7,
+      "mapId": "urban-01"
+    }
+  ]
+}

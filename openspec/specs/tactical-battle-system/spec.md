@@ -4,19 +4,11 @@
 TBD - created by archiving change mobile-multiplayer-tactics-roguelite-mvp. Update Purpose after archive.
 ## Requirements
 ### Requirement: Tactical battles SHALL resolve as unit-based squad turns
-The system SHALL run MVP battles as unit-by-unit tactical encounters between up to two squads, with each squad fielding up to three controllable units and optional neutral enemies, mission entities, or approved AI-controlled actors. On phone portrait screens, a player-controlled turn SHALL remain completable through on-screen touch controls without requiring hardware keyboard shortcuts.
+The system SHALL run MVP battles as unit-by-unit tactical encounters between up to two squads, with each squad fielding up to three controllable units and optional neutral enemies, mission entities, or approved AI-controlled actors. Battles SHALL be startable from validated battle setup data instead of only hardcoded scene fixtures.
 
-#### Scenario: AI-controlled unit takes a turn
-- **WHEN** an AI-controlled squad unit, boss, or approved non-player actor becomes active on the timeline
-- **THEN** the system SHALL resolve that turn through the shared planner while preserving the same movement, action, tool, and facing limits used by the battle system
-
-#### Scenario: Player chooses an action on mobile
-- **WHEN** a player selects their active unit on a phone portrait screen
-- **THEN** the system SHALL expose touch-accessible controls for movement, primary actions, tool use, combo access, cancel/reset, and ending the turn
-
-#### Scenario: Player needs guidance on mobile
-- **WHEN** the battle scene is in a player-controlled step on a phone portrait screen
-- **THEN** the system SHALL show clear current-step guidance using mobile-friendly language instead of relying on keyboard-centric shortcut hints
+#### Scenario: Battle starts from setup data
+- **WHEN** a local run is launched after squad setup is confirmed
+- **THEN** the system SHALL initialize the battle from the selected squad setup data while preserving the same mission, AI, movement, action, and mobile-touch rules
 
 ### Requirement: Movement SHALL use Move and Jump to determine reachable tiles
 The system SHALL determine movement by combining horizontal range with vertical traversal limits so terrain height changes alter pathing and route quality.

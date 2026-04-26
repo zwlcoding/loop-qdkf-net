@@ -1,5 +1,6 @@
 import { Unit, FacingDirection } from '../entities/Unit';
 import { GridMap } from './GridMap';
+import { getTerrainType } from '../data/TerrainTypes';
 
 export type AttackArc = 'front' | 'side' | 'rear';
 
@@ -121,7 +122,9 @@ export class CombatResolver {
 
   calculateHitChance(attacker: Unit, defender: Unit, baseHitChance: number = 80): number {
     const modifiers = this.calculateCombatModifiers(attacker, defender);
-    return Math.max(5, Math.min(95, baseHitChance + modifiers.hitBonus));
+    const defenderTile = this.gridMap.getTile(defender.getTileX(), defender.getTileY());
+    const coverPenalty = defenderTile ? (getTerrainType(defenderTile.terrain)?.coverValue ?? 0) : 0;
+    return Math.max(5, Math.min(95, baseHitChance + modifiers.hitBonus - coverPenalty));
   }
 
   resolveHit(attacker: Unit, defender: Unit, baseHitChance: number = 80): boolean {

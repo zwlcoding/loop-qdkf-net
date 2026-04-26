@@ -1,7 +1,11 @@
 import { AUTO, Game, Scale, Types } from 'phaser';
 import { BootScene } from './scenes/BootScene';
+import { MissionSelectScene } from './scenes/MissionSelectScene';
 import { BattleScene } from './scenes/BattleScene';
 import { SetupScene } from './scenes/SetupScene';
+import ResultScene from './scenes/ResultScene';
+import LoadoutScene from './scenes/LoadoutScene';
+import { MapPreviewScene } from './scenes/MapPreviewScene';
 
 function getGameDimensions(): { width: number; height: number } {
   const isPortrait = window.innerHeight > window.innerWidth;
@@ -26,7 +30,7 @@ const config: Types.Core.GameConfig = {
   render: {
     roundPixels: true,
   },
-  scene: [BootScene, SetupScene, BattleScene],
+  scene: [BootScene, MissionSelectScene, MapPreviewScene, LoadoutScene, SetupScene, BattleScene, ResultScene],
   physics: {
     default: 'arcade',
     arcade: {

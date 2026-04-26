@@ -5,11 +5,16 @@ import { CombatResolver } from '../core/CombatResolver';
 import { ActionOption, ActionResolver, TargetActionState, UnitActionState } from '../core/ActionResolver';
 import { SquadComboResource } from '../core/SquadComboResource';
 import { MissionManager } from '../core/MissionManager';
+import { ExtractionManager } from '../core/ExtractionManager';
+import { ChassisModuleManager } from '../core/ChassisModuleManager';
+import type { Mission } from '../data/MissionTypes';
 import { createBattleResultSummary, getBattleResultSummaryText, resolveWinningSquadId } from '../core/BattleResultSummary';
 import { BATTLE_SETUP_REGISTRY_KEY, createSeededBattleSetup, validateBattleSetup, type BattleSetup } from '../core/BattleSetup';
 import { buildMissionMarkers } from '../core/BattleMarkers';
 import { filterReachableTilesByOccupancy, isTileOccupiedByOtherUnit } from '../core/BattleOccupancy';
 import { Unit } from '../entities/Unit';
+import { HpBar } from './HpBar';
+import { DamageText } from './DamageText';
 import { StatusEffect } from '../entities/StatusEffect';
 import { contentLoader } from '../data/ContentLoader';
 import type { ModuleDefinition } from '../data/ModuleTypes';
@@ -49,12 +54,15 @@ export class BattleScene extends Scene {
   private targetableTiles: { x: number; y: number; color?: number; alpha?: number }[] = [];
   private readonly unitDisplayNames = new Map<string, string>();
   private readonly unitBadges = new Map<string, Phaser.GameObjects.Text>();
+  private readonly hpBars = new Map<string, HpBar>();
   private readonly squadControl = new Map<number, 'human' | 'ai'>();
   private lastLoggedPressureStage = -1;
   private lastMissionMarkerSignature = '';
   private resolvingBotTurn = false;
   private activeSetup!: BattleSetup;
   private battleEnded = false;
+  private extractionManager: ExtractionManager | null = null;
+  private chassisManager = new ChassisModuleManager();
 
   constructor() {
     super({ key: 'BattleScene' });
@@ -95,6 +103,11 @@ export class BattleScene extends Scene {
     this.createUnitsFromSetup();
     this.updateMissionMarkers();
     this.squadComboResource = new SquadComboResource(3, [...new Set(this.units.map((unit) => unit.getSquad()))]);
+
+    const selectedMission = this.registry.get('selectedMission') as Mission | undefined;
+    if (selectedMission) {
+      this.extractionManager = new ExtractionManager(selectedMission);
+    }
 
     this.turnManager.startNextTurn();
     this.setupInputHandlers();
@@ -156,6 +169,7 @@ export class BattleScene extends Scene {
       hasComboModule: (this.selectedUnit?.getComboModules().length ?? 0) > 0,
       hasSkillModule: (this.selectedUnit?.getActiveModules().length ?? 0) > 0,
       hasToolModule: (this.selectedUnit?.getToolModules().length ?? 0) > 0,
+      extractionAvailable: this.extractionManager?.isExtractionAvailable() ?? false,
     });
   }
 
@@ -264,7 +278,12 @@ export class BattleScene extends Scene {
       this.units.push(unit);
       this.unitDisplayNames.set(unit.getId(), label);
       this.createUnitBadge(unit, label);
+      this.createUnitHpBar(unit);
       this.applyFallbackLoadout(unit);
+      const loadout = this.registry.get('loadout');
+      if (loadout) {
+        this.chassisManager.applyLoadout(unit, loadout);
+      }
       this.turnManager.addUnit(unit);
     });
   }
@@ -284,6 +303,16 @@ export class BattleScene extends Scene {
     this.unitBadges.set(unit.getId(), badge);
   }
 
+  private createUnitHpBar(unit: Unit): void {
+    const hpBar = new HpBar(this, unit);
+    this.hpBars.set(unit.getId(), hpBar);
+    unit.setOnHpChanged((hp, maxHp) => hpBar.update(hp, maxHp));
+    unit.setOnDeath(() => {
+      hpBar.destroy();
+      this.hpBars.delete(unit.getId());
+    });
+  }
+
   private syncUnitBadges(): void {
     this.units.forEach((unit) => {
       const badge = this.unitBadges.get(unit.getId());
@@ -298,6 +327,21 @@ export class BattleScene extends Scene {
       badge.setText(isActive ? `▶ ${label}` : label);
       badge.setScale(isActive ? 1.05 : 1);
       badge.setAlpha(unit.isAlive() ? 1 : 0.45);
+    });
+
+    this.syncHpBars();
+  }
+
+  private syncHpBars(): void {
+    this.units.forEach((unit) => {
+      const hpBar = this.hpBars.get(unit.getId());
+      if (!hpBar) {
+        return;
+      }
+
+      const pos = unit.getWorldPosition();
+      hpBar.setPosition(pos.x, pos.y - 32);
+      hpBar.setAlpha(unit.isAlive() ? 1 : 0.45);
     });
   }
 
@@ -534,6 +578,11 @@ export class BattleScene extends Scene {
 
     if (action === 'endTurn') {
       this.endActiveTurn();
+      return;
+    }
+
+    if (action === 'extract') {
+      this.handleExtract();
       return;
     }
 
@@ -1025,10 +1074,12 @@ export class BattleScene extends Scene {
 
     if (result.appliedDamage) {
       targetUnit.applyResolvedDamage(result.appliedDamage);
+      this.spawnDamageText(targetUnit, result.appliedDamage, 'damage');
     }
 
     if (result.appliedHealing) {
       targetUnit.heal(result.appliedHealing);
+      this.spawnDamageText(targetUnit, result.appliedHealing, 'heal');
     }
 
     if (result.appliedStatuses?.length) {
@@ -1090,7 +1141,56 @@ export class BattleScene extends Scene {
       badge.destroy();
       this.unitBadges.delete(unit.getId());
     }
+    const hpBar = this.hpBars.get(unit.getId());
+    if (hpBar) {
+      hpBar.destroy();
+      this.hpBars.delete(unit.getId());
+    }
     unit.destroy();
+  }
+
+  shutdown(): void {
+    this.hpBars.forEach((hpBar) => hpBar.destroy());
+    this.hpBars.clear();
+  }
+
+  private handleExtract(): void {
+    if (!this.extractionManager) {
+      this.refreshHud('当前不是任务模式，无法提取。');
+      return;
+    }
+    if (!this.extractionManager.isExtractionAvailable()) {
+      this.refreshHud('提取尚未可用。');
+      return;
+    }
+    const survivingUnits = this.units.filter((unit) => unit.isAlive());
+    const result = this.extractionManager.evaluateExtraction(survivingUnits);
+    if (result.success) {
+      this.refreshLog(`[提取成功] ${result.reason}`);
+      this.showExtractionResult(result.rewards);
+    } else {
+      this.refreshLog(`[提取失败] ${result.reason}`);
+    }
+  }
+
+  private showExtractionResult(rewards: import('../data/MissionTypes').Reward[]): void {
+    this.battleEnded = true;
+    const panel = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, Math.min(760, this.scale.width - 48), Math.min(540, this.scale.height - 48), 0x020617, 0.92)
+      .setScrollFactor(0)
+      .setDepth(40)
+      .setStrokeStyle(2, 0x93c5fd, 0.8);
+    const rewardText = rewards.map((r) => {
+      const label = r.type === 'resource' ? '资源' : r.type === 'experience' ? '经验' : '解锁';
+      return `${label} ${r.itemId} x${r.amount}`;
+    }).join('\n');
+    this.add.text(this.scale.width / 2, this.scale.height / 2, `提取成功！\n\n获得奖励：\n${rewardText}\n\n按 R 返回主菜单。`, {
+      color: '#f8fafc',
+      fontFamily: 'monospace',
+      fontSize: '16px',
+      align: 'left',
+      wordWrap: { width: panel.width - 40 },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(41);
+    this.refreshLog('提取完成，按 R 返回主菜单。');
   }
 
   private tryResolveExtraction(unit: Unit): boolean {
@@ -1130,9 +1230,19 @@ export class BattleScene extends Scene {
     } else {
       this.turnManager.startNextTurn();
     }
+    if (this.extractionManager) {
+      this.extractionManager.incrementTurn();
+    }
     this.clearReachableTiles();
     this.syncUnitBadges();
     this.refreshHud(extracted ? '单位已撤离，切换到下一回合。' : '回合结束。');
+  }
+
+  private spawnDamageText(targetUnit: Unit, value: number, type: 'damage' | 'heal' | 'miss' | 'critical'): void {
+    const pos = targetUnit.getWorldPosition();
+    const offsetX = (Math.random() - 0.5) * 16; // slight random x offset to avoid overlap
+    const damageText = new DamageText(this, pos.x + offsetX, pos.y - 20, value, type);
+    damageText.play();
   }
 
   private isObjectiveCompleted(): boolean {

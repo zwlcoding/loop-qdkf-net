@@ -49,6 +49,30 @@ class HpBar {
 - `BattleOccupancy.ts`: 死亡移除时清理 HpBar
 
 ## Mobile Considerations
-- 血条宽度：单位精灵宽度的 80%
-- 血条高度：4px（手机端清晰但不遮挡）
-- 位置：单位头顶上方 8px
+ 血条宽度：单位精灵宽度的 80%
+ 血条高度：4px（手机端清晰但不遮挡）
+ 位置：单位头顶上方 8px
+
+ ## Damage Number Component
+
+ ### DamageText 类
+ ```typescript
+ class DamageText {
+   private text: Phaser.GameObjects.Text
+   
+   constructor(scene: Scene, x: number, y: number, value: number, type: 'damage' | 'heal' | 'miss')
+   play(): void  // 向上飘动 + 淡出，600ms 后销毁
+   destroy(): void
+ }
+ ```
+
+ ### 视觉规则
+ - 普通伤害：白色，字号 14
+ - 暴击/弱点：黄色加粗，字号 18
+ - 治疗：绿色，字号 14
+ - Miss：灰色斜体，字号 12
+ - 飘动方向：正上方 30px，600ms 淡出
+
+ ### 触发时机
+ - CombatResolver 伤害结算后，根据结果生成 DamageText
+ - 位置：目标单位头顶偏右（避免遮挡血条）

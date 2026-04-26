@@ -11,10 +11,11 @@ export interface BattleSceneMobileContext {
   hasComboModule: boolean;
   hasSkillModule: boolean;
   hasToolModule: boolean;
+  extractionAvailable?: boolean;
 }
 
 export interface BattleSceneActionBarAction {
-  id: 'move' | 'basic' | 'skill' | 'tool' | 'combo' | 'cancel' | 'endTurn';
+  id: 'move' | 'basic' | 'skill' | 'tool' | 'combo' | 'cancel' | 'endTurn' | 'extract';
   label: string;
   enabled: boolean;
   selected: boolean;
@@ -71,6 +72,7 @@ export function getBattleSceneActionBarState(context: BattleSceneMobileContext):
     },
     { id: 'cancel', label: '取消', enabled: hasSelection, selected: false },
     { id: 'endTurn', label: '结束', enabled: hasSelection, selected: false },
+    { id: 'extract', label: '提取', enabled: Boolean(context.extractionAvailable), selected: false },
   ];
 }
 
