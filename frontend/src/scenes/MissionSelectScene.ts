@@ -117,7 +117,7 @@ export class MissionSelectScene extends Scene {
 
     container.setSize(width, bg.height);
     container.setInteractive(
-      new Geom.Rectangle(0, 0, width, bg.height),
+      new Geom.Rectangle(-width / 2, -bg.height / 2, width, bg.height),
       Geom.Rectangle.Contains
     );
     if (container.input) {
