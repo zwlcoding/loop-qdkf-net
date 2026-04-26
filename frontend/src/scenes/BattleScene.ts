@@ -12,6 +12,8 @@ import { VisualEffects } from '../core/VisualEffects';
 import type { Mission } from '../data/MissionTypes';
 import { createBattleResultSummary, getBattleResultSummaryText, resolveWinningSquadId } from '../core/BattleResultSummary';
 import { BATTLE_SETUP_REGISTRY_KEY, createSeededBattleSetup, validateBattleSetup, type BattleSetup } from '../core/BattleSetup';
+import { recordBattle, type RiftRunState } from '../core/RiftRunManager';
+import { isMapComplete } from '../core/RiftMap';
 import { buildMissionMarkers } from '../core/BattleMarkers';
 import { filterReachableTilesByOccupancy, isTileOccupiedByOtherUnit } from '../core/BattleOccupancy';
 import { Unit } from '../entities/Unit';
@@ -65,6 +67,8 @@ export class BattleScene extends Scene {
   private battleEnded = false;
   private extractionManager: ExtractionManager | null = null;
   private chassisManager = new ChassisModuleManager();
+  private riftDamageDealt = 0;
+  private riftDamageTaken = 0;
 
   constructor() {
     super({ key: 'BattleScene' });
@@ -1125,6 +1129,12 @@ export class BattleScene extends Scene {
       if (result.appliedDamage > 20) {
         VisualEffects.screenShake(this);
       }
+      if (sourceUnit.getSquad() <= 1) {
+        this.riftDamageDealt += result.appliedDamage;
+      }
+      if (targetUnit.getSquad() <= 1) {
+        this.riftDamageTaken += result.appliedDamage;
+      }
     }
 
     if (result.appliedHealing) {
@@ -1333,6 +1343,39 @@ export class BattleScene extends Scene {
       ...extractedIds,
     ]);
     const winningSquadId = resolveWinningSquadId(this.activeSetup, Array.from(survivingOrExtractedUnitIds));
+
+    const riftRunState = this.registry.get('riftRunState') as RiftRunState | undefined;
+    if (riftRunState && winningSquadId === 0) {
+      const enemiesKilled = this.units.filter((unit) => unit.getSquad() > 1 && !unit.isAlive()).length;
+      const updatedState = recordBattle(riftRunState, {
+        enemiesKilled,
+        damageDealt: this.riftDamageDealt,
+        damageTaken: this.riftDamageTaken,
+        goldReward: 20,
+      });
+      this.registry.set('riftRunState', updatedState);
+
+      const currentRoom = updatedState.riftMap.rooms.find((r) => r.id === updatedState.riftMap.currentRoomId);
+      if (currentRoom?.type === 'treasure') {
+        this.scene.start('LootScene');
+        return;
+      }
+
+      if (isMapComplete(updatedState.riftMap)) {
+        this.scene.start('Result');
+        return;
+      }
+
+      this.scene.start('RiftMapScene');
+      return;
+    }
+
+    if (riftRunState && winningSquadId !== 0) {
+      this.registry.set('riftRunState', { ...riftRunState, active: false });
+      this.scene.start('Result');
+      return;
+    }
+
     const summary = createBattleResultSummary({
       setup: this.activeSetup,
       durationSeconds: this.missionManager.getElapsedSeconds(),

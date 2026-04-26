@@ -1,6 +1,6 @@
 # Spec Update: audio-visual-feedback
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Battles SHALL provide audio-visual feedback for all combat actions
 

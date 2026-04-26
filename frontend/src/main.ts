@@ -6,6 +6,8 @@ import { SetupScene } from './scenes/SetupScene';
 import ResultScene from './scenes/ResultScene';
 import LoadoutScene from './scenes/LoadoutScene';
 import { MapPreviewScene } from './scenes/MapPreviewScene';
+import { LootScene } from './scenes/LootScene';
+import { RiftMapScene } from './scenes/RiftMapScene';
 
 function getGameDimensions(): { width: number; height: number } {
   const isPortrait = window.innerHeight > window.innerWidth;
@@ -30,7 +32,7 @@ const config: Types.Core.GameConfig = {
   render: {
     roundPixels: true,
   },
-  scene: [BootScene, MissionSelectScene, MapPreviewScene, LoadoutScene, SetupScene, BattleScene, ResultScene],
+  scene: [BootScene, MissionSelectScene, MapPreviewScene, LootScene, RiftMapScene, LoadoutScene, SetupScene, BattleScene, ResultScene],
   physics: {
     default: 'arcade',
     arcade: {

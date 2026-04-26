@@ -1,5 +1,7 @@
 export type ModuleCategory = 'active' | 'passive' | 'combo' | 'tool';
 
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic';
+
 export interface ModuleEffect {
   type: string;
   power?: number;
@@ -27,6 +29,7 @@ export interface ModuleDefinition {
   id: string;
   name: string;
   category: ModuleCategory;
+  rarity: Rarity;
   description: string;
   targeting?: ModuleTargeting;
   comboCost?: number;

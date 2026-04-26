@@ -4,6 +4,7 @@
       "id": "slash",
       "name": "Slash",
       "category": "active",
+      "rarity": "common",
       "description": "Basic melee attack",
       "targeting": {
         "range": 1,
@@ -21,6 +22,7 @@
       "id": "fireball",
       "name": "Fireball",
       "category": "active",
+      "rarity": "common",
       "description": "Ranged magic damage",
       "targeting": {
         "range": 4,
@@ -38,6 +40,7 @@
       "id": "heal",
       "name": "Heal",
       "category": "active",
+      "rarity": "common",
       "description": "Restore HP to target",
       "targeting": {
         "range": 3,
@@ -55,6 +58,7 @@
       "id": "shield_bash",
       "name": "Shield Bash",
       "category": "active",
+      "rarity": "uncommon",
       "description": "Attack with knockback",
       "targeting": {
         "range": 1,
@@ -76,6 +80,7 @@
       "id": "barrier_field",
       "name": "Barrier Field",
       "category": "active",
+      "rarity": "uncommon",
       "description": "Apply shield to an ally",
       "targeting": {
         "range": 3,
@@ -95,6 +100,7 @@
       "id": "toxin_round",
       "name": "Toxin Round",
       "category": "active",
+      "rarity": "rare",
       "description": "Apply poison and vulnerable",
       "targeting": {
         "range": 3,
@@ -124,6 +130,7 @@
       "id": "charge",
       "name": "Charge",
       "category": "active",
+      "rarity": "uncommon",
       "description": "Dash and strike with bonus damage",
       "targeting": {
         "range": 2,
@@ -141,6 +148,7 @@
       "id": "root_shot",
       "name": "Root Shot",
       "category": "active",
+      "rarity": "rare",
       "description": "Immobilize target",
       "targeting": {
         "range": 4,
@@ -160,6 +168,7 @@
       "id": "speed_boost",
       "name": "Speed Boost",
       "category": "passive",
+      "rarity": "common",
       "description": "+2 Speed",
       "effects": [
         {
@@ -173,6 +182,7 @@
       "id": "iron_skin",
       "name": "Iron Skin",
       "category": "passive",
+      "rarity": "common",
       "description": "+3 Defense",
       "effects": [
         {
@@ -186,6 +196,7 @@
       "id": "adrenaline",
       "name": "Adrenaline",
       "category": "passive",
+      "rarity": "uncommon",
       "description": "+2 Attack",
       "effects": [
         {
@@ -199,6 +210,7 @@
       "id": "vigor",
       "name": "Vigor",
       "category": "passive",
+      "rarity": "rare",
       "description": "+15 Max HP",
       "effects": [
         {
@@ -212,6 +224,7 @@
       "id": "team_strike",
       "name": "Team Strike",
       "category": "combo",
+      "rarity": "common",
       "description": "Squad combo attack",
       "comboCost": 2,
       "participationRules": {
@@ -231,6 +244,7 @@
       "id": "unison_blast",
       "name": "Unison Blast",
       "category": "combo",
+      "rarity": "rare",
       "description": "High-damage focused combo",
       "comboCost": 3,
       "participationRules": {
@@ -250,6 +264,7 @@
       "id": "rescue_link",
       "name": "Rescue Link",
       "category": "combo",
+      "rarity": "epic",
       "description": "Heal all participants and one target ally",
       "comboCost": 2,
       "participationRules": {
@@ -274,6 +289,7 @@
       "id": "potion",
       "name": "Healing Potion",
       "category": "tool",
+      "rarity": "common",
       "description": "Consume to heal 30 HP",
       "usesPerTurn": 1,
       "effects": [
@@ -287,6 +303,7 @@
       "id": "smoke_bomb",
       "name": "Smoke Bomb",
       "category": "tool",
+      "rarity": "uncommon",
       "description": "Slow enemies in an area",
       "usesPerTurn": 1,
       "effects": [
@@ -302,6 +319,7 @@
       "id": "stim_pack",
       "name": "Stim Pack",
       "category": "tool",
+      "rarity": "rare",
       "description": "Heal 15 HP and grant a small shield",
       "usesPerTurn": 1,
       "effects": [
@@ -321,6 +339,7 @@
       "id": "flash_bang",
       "name": "Flash Bang",
       "category": "tool",
+      "rarity": "epic",
       "description": "Stun target for one turn",
       "usesPerTurn": 1,
       "effects": [
