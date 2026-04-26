@@ -121,7 +121,7 @@ export class MissionSelectScene extends Scene {
       container.on('pointerdown', () => {
         this.registry.set('selectedMission', mission);
         this.registry.set('selectedMap', mission.mapId);
-        this.scene.start('Setup');
+        this.scene.start('SetupScene');
       });
     }
   }
