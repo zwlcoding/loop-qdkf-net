@@ -1,6 +1,7 @@
 import { Scene } from 'phaser';
 import { calculateRunReward, type RiftRunState } from '../core/RiftRunManager';
 import { loadMetaProgress, saveMetaProgress, addShards } from '../core/MetaProgression';
+import { COLORS, FONTS, createPanel, createButton } from '../ui/Theme';
 
 export default class ResultScene extends Scene {
   constructor() {
@@ -12,7 +13,7 @@ export default class ResultScene extends Scene {
     const height = this.scale.height;
 
     // Dark blue background
-    this.cameras.main.setBackgroundColor("#0f172a");
+    this.cameras.main.setBackgroundColor(COLORS.bg.primary);
 
     const riftRunState = this.registry.get("riftRunState") as RiftRunState | undefined;
 
@@ -42,13 +43,24 @@ export default class ResultScene extends Scene {
     this.registry.remove("riftRunState");
     this.registry.remove("riftMap");
 
+    // Reward panel background
+    const panelW = Math.min(480, width * 0.8);
+    const panelH = Math.max(360, height * 0.5);
+    createPanel(this, width / 2, height * 0.45, panelW, panelH, {
+      fillColor: COLORS.bg.overlay,
+      fillAlpha: 0.92,
+      strokeColor: COLORS.border.light,
+      strokeAlpha: 0.8,
+      strokeWidth: 2,
+    });
+
     // Title
     const titleText = "裂隙运行结束";
     this.add
-      .text(width / 2, height * 0.2, titleText, {
-        fontSize: "48px",
-        color: "#22c55e",
-        fontFamily: "sans-serif",
+      .text(width / 2, height * 0.22, titleText, {
+        fontSize: FONTS.title.size,
+        color: COLORS.text.accent,
+        fontFamily: FONTS.title.family,
       })
       .setOrigin(0.5);
 
@@ -61,29 +73,31 @@ export default class ResultScene extends Scene {
       `层数完成: ${stats.layersCompleted}`,
     ];
 
-    let y = height * 0.38;
+    let y = height * 0.35;
     for (const line of statLines) {
       this.add
         .text(width / 2, y, line, {
-          fontSize: "22px",
-          color: "#e2e8f0",
-          fontFamily: "sans-serif",
+          fontSize: FONTS.body.size,
+          color: FONTS.body.color,
+          fontFamily: FONTS.body.family,
         })
         .setOrigin(0.5);
-      y += 36;
+      y += 32;
     }
 
     // Shards reward
     this.add
-      .text(width / 2, height * 0.65, `获得碎片: ${shards}`, {
-        fontSize: "32px",
-        color: "#fbbf24",
-        fontFamily: "sans-serif",
+      .text(width / 2, height * 0.62, `获得碎片: ${shards}`, {
+        fontSize: FONTS.title.size,
+        color: COLORS.text.accent,
+        fontFamily: FONTS.title.family,
       })
       .setOrigin(0.5);
 
     // Return button
-    this.createButton(width / 2, height * 0.82, "返回主菜单", () => {
+    const btnW = 200;
+    const btnH = Math.max(48, height * 0.06);
+    createButton(this, width / 2, height * 0.82, "返回主菜单", btnW, btnH, () => {
       this.scene.start("MissionSelectScene");
     });
   }
@@ -95,13 +109,24 @@ export default class ResultScene extends Scene {
     };
 
     const titleText = result.success ? "任务完成" : "任务失败";
-    const titleColor = result.success ? "#22c55e" : "#ef4444";
+    const titleColor = result.success ? COLORS.text.accent : '#ef4444';
+
+    // Reward panel background
+    const panelW = Math.min(480, width * 0.8);
+    const panelH = Math.max(320, height * 0.45);
+    createPanel(this, width / 2, height * 0.42, panelW, panelH, {
+      fillColor: COLORS.bg.overlay,
+      fillAlpha: 0.92,
+      strokeColor: COLORS.border.light,
+      strokeAlpha: 0.8,
+      strokeWidth: 2,
+    });
 
     this.add
-      .text(width / 2, height * 0.2, titleText, {
-        fontSize: "48px",
+      .text(width / 2, height * 0.22, titleText, {
+        fontSize: FONTS.title.size,
         color: titleColor,
-        fontFamily: "sans-serif",
+        fontFamily: FONTS.title.family,
       })
       .setOrigin(0.5);
 
@@ -112,79 +137,47 @@ export default class ResultScene extends Scene {
         unlock: "解锁",
       };
 
-      let y = height * 0.35;
+      let y = height * 0.34;
       for (const reward of result.rewards) {
         const label = typeLabels[reward.type] ?? reward.type;
         const text = `${label}: ${reward.itemId} x${reward.amount}`;
         this.add
           .text(width / 2, y, text, {
-            fontSize: "24px",
-            color: "#e2e8f0",
-            fontFamily: "sans-serif",
+            fontSize: FONTS.body.size,
+            color: FONTS.body.color,
+            fontFamily: FONTS.body.family,
           })
           .setOrigin(0.5);
-        y += 40;
+        y += 32;
       }
     }
 
-    const buttonY = height * 0.75;
+    const btnW = 200;
+    const btnH = Math.max(48, height * 0.06);
+    const buttonY = height * 0.72;
     const buttonGap = 20;
-    const buttonWidth = 200;
-    const buttonHeight = Math.max(48, height * 0.06);
 
-    this.createButton(
-      width / 2 - buttonWidth / 2 - buttonGap / 2,
+    createButton(
+      this,
+      width / 2 - btnW / 2 - buttonGap / 2,
       buttonY,
       "返回主菜单",
+      btnW,
+      btnH,
       () => {
         this.scene.start("Boot");
-      },
-      buttonWidth,
-      buttonHeight
+      }
     );
-    this.createButton(
-      width / 2 + buttonWidth / 2 + buttonGap / 2,
+    createButton(
+      this,
+      width / 2 + btnW / 2 + buttonGap / 2,
       buttonY,
       "继续下一轮",
+      btnW,
+      btnH,
       () => {
         this.scene.start("MissionSelect");
-      },
-      buttonWidth,
-      buttonHeight
+      }
     );
-  }
-
-  private createButton(
-    x: number,
-    y: number,
-    label: string,
-    onClick: () => void,
-    buttonWidth = 200,
-    buttonHeight = Math.max(48, this.scale.height * 0.06)
-  ): void {
-    const container = this.add.container(x, y);
-
-    const bg = this.add
-      .rectangle(0, 0, buttonWidth, buttonHeight, 0x334155)
-      .setInteractive({ useHandCursor: true });
-
-    const txt = this.add.text(0, 0, label, {
-      fontSize: "20px",
-      color: "#f8fafc",
-      fontFamily: "sans-serif",
-    });
-    txt.setOrigin(0.5);
-
-    container.add([bg, txt]);
-
-    bg.on("pointerover", () => {
-      bg.setFillStyle(0x475569);
-    });
-    bg.on("pointerout", () => {
-      bg.setFillStyle(0x334155);
-    });
-    bg.on("pointerdown", () => {
-      onClick();
-    });
   }
 }

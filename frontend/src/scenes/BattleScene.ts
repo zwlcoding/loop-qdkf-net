@@ -1,4 +1,5 @@
 import { Input, Scene } from 'phaser';
+import { COLORS, FONTS, createPanel } from '../ui/Theme';
 import { GridMap } from '../core/GridMap';
 import { TurnManager } from '../core/TurnManager';
 import { CombatResolver } from '../core/CombatResolver';
@@ -184,8 +185,8 @@ export class BattleScene extends Scene {
   private createHud(): void {
     const layout = this.getLayout();
     this.hudText = this.add.text(layout.hud.position.x, layout.hud.position.y, '', {
-      color: '#ffffff',
-      fontFamily: 'monospace',
+      color: FONTS.hud.color,
+      fontFamily: FONTS.hud.family,
       fontSize: `${layout.hud.fontSize}px`,
       backgroundColor: '#10162fcc',
       padding: { x: 10, y: 8 },
@@ -193,8 +194,8 @@ export class BattleScene extends Scene {
     }).setScrollFactor(0).setDepth(20);
 
     this.logText = this.add.text(layout.log.position.x, layout.log.position.y, '', {
-      color: '#ffd166',
-      fontFamily: 'monospace',
+      color: COLORS.text.accent,
+      fontFamily: FONTS.hud.family,
       fontSize: `${layout.log.fontSize}px`,
       backgroundColor: '#10162fcc',
       padding: { x: 10, y: 8 },
@@ -202,8 +203,8 @@ export class BattleScene extends Scene {
     }).setScrollFactor(0).setDepth(20);
 
     this.debugText = this.add.text(layout.debug.position.x, layout.debug.position.y, '', {
-      color: '#9fe870',
-      fontFamily: 'monospace',
+      color: COLORS.text.debug,
+      fontFamily: FONTS.hud.family,
       fontSize: this.isPortrait() ? '11px' : '12px',
       backgroundColor: '#081018dd',
       padding: { x: 8, y: 6 },
@@ -226,16 +227,16 @@ export class BattleScene extends Scene {
     });
 
     this.portraitActionButtons = actions.map((action) => {
-      const background = this.add.rectangle(0, 0, 80, 42, 0x16213e, 0.95)
+      const background = this.add.rectangle(0, 0, 80, 42, COLORS.bg.secondary, 0.95)
         .setOrigin(0, 0)
-        .setStrokeStyle(2, 0x6ea8fe, 0.35)
+        .setStrokeStyle(2, COLORS.border.medium, 0.35)
         .setScrollFactor(0)
         .setDepth(25)
         .setInteractive({ useHandCursor: true });
       const label = this.add.text(0, 0, action.label, {
-        color: '#ffffff',
-        fontFamily: 'monospace',
-        fontSize: '12px',
+        color: COLORS.text.primary,
+        fontFamily: FONTS.hud.family,
+        fontSize: FONTS.hud.size,
         align: 'center',
       }).setOrigin(0.5).setScrollFactor(0).setDepth(26);
 
@@ -650,10 +651,10 @@ export class BattleScene extends Scene {
 
       button.label.setText(meta.label);
       button.background.setFillStyle(
-        meta.selected ? 0x2a9d8f : meta.enabled ? 0x16213e : 0x3d405b,
+        meta.selected ? COLORS.accent.teal : meta.enabled ? COLORS.bg.secondary : COLORS.bg.primary,
         meta.selected ? 1 : meta.enabled ? 0.96 : 0.55
       );
-      button.background.setStrokeStyle(2, meta.selected ? 0xf4d35e : meta.enabled ? 0x6ea8fe : 0x6b7280, meta.enabled ? 0.85 : 0.35);
+      button.background.setStrokeStyle(2, meta.selected ? COLORS.accent.yellow : meta.enabled ? COLORS.border.medium : COLORS.border.dim, meta.enabled ? 0.85 : 0.35);
       button.label.setAlpha(meta.enabled ? 1 : 0.45);
       if (button.background.input) {
         button.background.input.enabled = meta.enabled;
@@ -1235,20 +1236,19 @@ export class BattleScene extends Scene {
 
   private showExtractionResult(rewards: import('../data/MissionTypes').Reward[]): void {
     this.battleEnded = true;
-    const panel = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, Math.min(760, this.scale.width - 48), Math.min(540, this.scale.height - 48), 0x020617, 0.92)
-      .setScrollFactor(0)
-      .setDepth(40)
-      .setStrokeStyle(2, 0x93c5fd, 0.8);
+    const panelWidth = Math.min(760, this.scale.width - 48);
+    const panelHeight = Math.min(540, this.scale.height - 48);
+    createPanel(this, this.scale.width / 2, this.scale.height / 2, panelWidth, panelHeight, { depth: 40 });
     const rewardText = rewards.map((r) => {
       const label = r.type === 'resource' ? '资源' : r.type === 'experience' ? '经验' : '解锁';
       return `${label} ${r.itemId} x${r.amount}`;
     }).join('\n');
     this.add.text(this.scale.width / 2, this.scale.height / 2, `提取成功！\n\n获得奖励：\n${rewardText}\n\n按 R 返回主菜单。`, {
-      color: '#f8fafc',
-      fontFamily: 'monospace',
-      fontSize: '16px',
+      color: COLORS.text.primary,
+      fontFamily: FONTS.body.family,
+      fontSize: FONTS.body.size,
       align: 'left',
-      wordWrap: { width: panel.width - 40 },
+      wordWrap: { width: panelWidth - 40 },
     }).setOrigin(0.5).setScrollFactor(0).setDepth(41);
     this.refreshLog('提取完成，按 R 返回主菜单。');
   }
@@ -1390,16 +1390,15 @@ export class BattleScene extends Scene {
       },
     });
 
-    const panel = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, Math.min(760, this.scale.width - 48), Math.min(540, this.scale.height - 48), 0x020617, 0.92)
-      .setScrollFactor(0)
-      .setDepth(40)
-      .setStrokeStyle(2, 0x93c5fd, 0.8);
+    const panelWidth = Math.min(760, this.scale.width - 48);
+    const panelHeight = Math.min(540, this.scale.height - 48);
+    createPanel(this, this.scale.width / 2, this.scale.height / 2, panelWidth, panelHeight, { depth: 40 });
     this.add.text(this.scale.width / 2, this.scale.height / 2, getBattleResultSummaryText(summary), {
-      color: '#f8fafc',
-      fontFamily: 'monospace',
-      fontSize: '16px',
+      color: COLORS.text.primary,
+      fontFamily: FONTS.body.family,
+      fontSize: FONTS.body.size,
       align: 'left',
-      wordWrap: { width: panel.width - 40 },
+      wordWrap: { width: panelWidth - 40 },
     }).setOrigin(0.5).setScrollFactor(0).setDepth(41);
     this.refreshLog('战斗结束，按 R 返回设置。');
   }
