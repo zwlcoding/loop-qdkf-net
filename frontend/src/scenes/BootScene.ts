@@ -1,4 +1,4 @@
-import { Scene } from 'phaser';
+import { Scene, GameObjects } from 'phaser';
 import { contentLoader } from '../data/ContentLoader';
 import { AssetIntake } from '../core/AssetIntake';
 import { resolvePublicAssetPath } from '../core/AssetPath';
@@ -10,12 +10,23 @@ import missionsData from '../data/missions.json';
 export class BootScene extends Scene {
   private assetIntake!: AssetIntake;
   private progressManager = new ProgressManager();
+  // Loading UI elements
+  private loadingBg!: GameObjects.Rectangle;
+  private progressBar!: GameObjects.Rectangle;
+  private progressBorder!: GameObjects.Rectangle;
+  private progressText!: GameObjects.Text;
+  private loadingTitle!: GameObjects.Text;
+  private loadingHint!: GameObjects.Text;
+  private hintDots = 0;
+  private hintTimer = 0;
 
   constructor() {
     super({ key: 'BootScene' });
   }
 
   preload(): void {
+    this.showLoadingUI();
+
     this.assetIntake = new AssetIntake(this);
     this.assetIntake.loadAllAssets();
 
@@ -26,11 +37,18 @@ export class BootScene extends Scene {
     this.load.image('particle-magic', resolvePublicAssetPath('particles/magic-spark.png'));
     this.load.image('particle-death', resolvePublicAssetPath('particles/death-burst.png'));
 
-    // Vite publicDir assets are served from BASE_URL in build and root in dev.
     this.load.json('chassis-data', resolvePublicAssetPath('data/chassis.json'));
     this.load.json('modules-data', resolvePublicAssetPath('data/modules.json'));
     this.load.json('mission-templates', resolvePublicAssetPath('data/mission-templates.json'));
     this.load.json('map-events', resolvePublicAssetPath('data/map-events.json'));
+
+    // Wire up progress events
+    this.load.on('progress', (value: number) => {
+      this.updateProgress(value);
+    });
+    this.load.on('complete', () => {
+      this.cleanUpLoadingUI();
+    });
   }
 
   create(): void {
@@ -57,6 +75,93 @@ export class BootScene extends Scene {
     this.registry.set('contentLoader', contentLoader);
 
     this.showMainMenu();
+  }
+
+  /* ── Loading UI ──────────────────────────────────── */
+
+  private showLoadingUI(): void {
+    const w = this.scale.width;
+    const h = this.scale.height;
+    const isPortrait = h > w;
+
+    // Dark background
+    this.loadingBg = this.add.rectangle(w / 2, h / 2, w, h, 0x0f172a);
+
+    // Title
+    const titleY = isPortrait ? h * 0.32 : h * 0.35;
+    this.loadingTitle = this.add.text(w / 2, titleY, 'LOOP QDKF', {
+      color: '#f8fafc',
+      fontFamily: 'monospace',
+      fontSize: isPortrait ? '26px' : '32px',
+    }).setOrigin(0.5);
+
+    // Progress bar dimensions
+    const barWidth = Math.min(w * 0.6, 320);
+    const barHeight = 12;
+    const barX = (w - barWidth) / 2;
+    const barY = titleY + 60;
+
+    // Border (1px outline)
+    this.progressBorder = this.add.rectangle(
+      barX + barWidth / 2, barY, barWidth + 4, barHeight + 4, 0x334155
+    ).setOrigin(0.5);
+
+    // Bar (starts at 0 width)
+    this.progressBar = this.add.rectangle(
+      barX, barY - barHeight / 2, 0, barHeight, 0x3b82f6
+    ).setOrigin(0, 0);
+
+    // Percentage text
+    this.progressText = this.add.text(w / 2, barY + 28, '0%', {
+      color: '#94a3b8',
+      fontFamily: 'monospace',
+      fontSize: '14px',
+    }).setOrigin(0.5);
+
+    // Hint text (animated dots)
+    this.loadingHint = this.add.text(w / 2, barY + 54, '正在加载资源', {
+      color: '#64748b',
+      fontFamily: 'monospace',
+      fontSize: '13px',
+    }).setOrigin(0.5);
+  }
+
+  private updateProgress(value: number): void {
+    const w = this.scale.width;
+    const h = this.scale.height;
+    const isPortrait = h > w;
+    const barWidth = Math.min(w * 0.6, 320);
+    const titleY = isPortrait ? h * 0.32 : h * 0.35;
+    const barY = titleY + 60;
+
+    this.progressBar.width = barWidth * value;
+    this.progressText.setText(`${Math.floor(value * 100)}%`);
+
+    // Animate hint dots
+    const dots = '.'.repeat(this.hintDots % 4);
+    this.loadingHint.setText(`正在加载资源${dots}`);
+  }
+
+  private cleanUpLoadingUI(): void {
+    this.loadingBg?.destroy();
+    this.progressBar?.destroy();
+    this.progressBorder?.destroy();
+    this.progressText?.destroy();
+    this.loadingTitle?.destroy();
+    this.loadingHint?.destroy();
+  }
+
+  update(_time: number, delta: number): void {
+    // Animate loading dots while loading
+    if (this.loadingHint?.active) {
+      this.hintTimer += delta;
+      if (this.hintTimer > 400) {
+        this.hintTimer = 0;
+        this.hintDots++;
+        const dots = '.'.repeat(this.hintDots % 4);
+        this.loadingHint.setText(`正在加载资源${dots}`);
+      }
+    }
   }
 
   private showMainMenu(): void {
