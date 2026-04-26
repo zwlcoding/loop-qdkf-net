@@ -165,7 +165,7 @@ export class BootScene extends Scene {
   }
 
   private showMainMenu(): void {
-    AudioManager.getInstance().playBgm('menu-bgm');
+    AudioManager.getInstance().playBgm('menu-bgm', this);
     this.cameras.main.setBackgroundColor('#0f172a');
 
     const isPortrait = this.scale.height > this.scale.width;

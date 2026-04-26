@@ -116,7 +116,7 @@ export class BattleScene extends Scene {
     this.setupKeyboardShortcuts();
     this.refreshHud();
 
-    AudioManager.getInstance().playBgm('battle-bgm');
+    AudioManager.getInstance().playBgm('battle-bgm', this);
   }
 
   private resolveBattleSetup(): BattleSetup {

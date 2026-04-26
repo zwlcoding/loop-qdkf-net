@@ -18,6 +18,7 @@ export type SfxKey = (typeof SFX_KEYS)[number];
 export class AudioManager {
   private static _instance: AudioManager | null = null;
 
+  /** Scene used for the current/last BGM. Updated each time playBgm is called. */
   private _scene: Phaser.Scene | null = null;
   private _currentBgm: Phaser.Sound.WebAudioSound | null = null;
   private _bgmVolume = 1;
@@ -49,7 +50,17 @@ export class AudioManager {
     }
   }
 
-  playBgm(key: BgmKey): void {
+  /**
+   * Play a BGM track. Pass the calling scene so sounds are created on the
+   * correct (active) scene's sound manager — prevents stale references after
+   * scene transitions.
+   */
+  playBgm(key: BgmKey, scene?: Phaser.Scene): void {
+    // Update scene reference if a new one is provided
+    if (scene) {
+      this._scene = scene;
+    }
+
     if (!this._scene) return;
 
     this.stopBgm();
