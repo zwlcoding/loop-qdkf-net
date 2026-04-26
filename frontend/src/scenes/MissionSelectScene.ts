@@ -1,5 +1,4 @@
-import { Scene } from 'phaser';
-import Phaser from 'phaser';
+import { Scene, Geom } from 'phaser';
 import type { Mission, Reward, UnlockCondition } from '../data/MissionTypes';
 import missionsData from '../data/missions.json';
 import { ProgressManager } from '../core/ProgressManager';
@@ -118,8 +117,8 @@ export class MissionSelectScene extends Scene {
 
     container.setSize(width, bg.height);
     container.setInteractive(
-      new Phaser.Geom.Rectangle(0, 0, width, bg.height),
-      Phaser.Geom.Rectangle.Contains
+      new Geom.Rectangle(0, 0, width, bg.height),
+      Geom.Rectangle.Contains
     );
     if (container.input) {
       container.input.cursor = isLocked ? 'default' : 'pointer';
