@@ -127,12 +127,7 @@ export class BootScene extends Scene {
   }
 
   private updateProgress(value: number): void {
-    const w = this.scale.width;
-    const h = this.scale.height;
-    const isPortrait = h > w;
-    const barWidth = Math.min(w * 0.6, 320);
-    const titleY = isPortrait ? h * 0.32 : h * 0.35;
-    const barY = titleY + 60;
+    const barWidth = Math.min(this.scale.width * 0.6, 320);
 
     this.progressBar.width = barWidth * value;
     this.progressText.setText(`${Math.floor(value * 100)}%`);
@@ -165,7 +160,7 @@ export class BootScene extends Scene {
   }
 
   private showMainMenu(): void {
-    AudioManager.getInstance().playBgm('menu-bgm', this);
+    AudioManager.getInstance().playBgm('menu-bgm');
     this.cameras.main.setBackgroundColor('#0f172a');
 
     const isPortrait = this.scale.height > this.scale.width;

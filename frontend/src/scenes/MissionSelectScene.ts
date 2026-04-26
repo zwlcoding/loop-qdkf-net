@@ -24,7 +24,7 @@ export class MissionSelectScene extends Scene {
   }
 
   create(): void {
-    AudioManager.getInstance().playBgm('menu-bgm', this);
+    AudioManager.getInstance().playBgm('menu-bgm');
     this.cameras.main.setBackgroundColor('#0f172a');
 
     const isPortrait = this.scale.height > this.scale.width;
