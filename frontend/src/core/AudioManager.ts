@@ -1,6 +1,6 @@
 import { resolvePublicAssetPath } from './AssetPath';
 
-const BGM_KEYS = ['battle-bgm', 'menu-bgm'] as const;
+const BGM_KEYS = ['battle-bgm', 'menu-bgm', 'setup-bgm'] as const;
 const SFX_KEYS = [
   'sfx-melee',
   'sfx-ranged',

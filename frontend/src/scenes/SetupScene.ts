@@ -16,11 +16,7 @@ export class SetupScene extends Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor('#0f172a');
-    this.missionIds = contentLoader.getAllMissionTemplates().map((template) => template.id);
-    if (this.missionIds.length === 0) {
-      this.missionIds = ['coop_boss_kill'];
-    }
-    this.missionIndex = Math.min(this.missionIndex, this.missionIds.length - 1);
+    AudioManager.getInstance().playBgm('setup-bgm');
 
     const isPortrait = this.scale.height > this.scale.width;
     const titleSize = isPortrait ? '22px' : '28px';
@@ -34,7 +30,7 @@ export class SetupScene extends Scene {
       align: 'center',
     }).setOrigin(0.5);
 
-    this.summaryText = this.add.text(this.scale.width / 2, isPortrait ? 100 : 160, '', {
+    this.summaryText = this.add.text(this.scale.width / 2, isPortrait ? 100 : 160, '加载中...', {
       color: '#e2e8f0',
       fontFamily: 'monospace',
       fontSize: textSize,
@@ -66,7 +62,7 @@ export class SetupScene extends Scene {
         this.refreshPreview();
       });
       this.createButton(this.scale.width / 2, btnY + btnGap * 2, '开始战斗', () => {
-        AudioManager.getInstance().playSfx('sfx-click');
+        AudioManager.getInstance().playSfx('sfx-confirm');
         this.startBattle();
       });
     } else {
@@ -82,7 +78,7 @@ export class SetupScene extends Scene {
         this.refreshPreview();
       });
       this.createButton(this.scale.width / 2 + 220, this.scale.height - 160, '开始战斗', () => {
-        AudioManager.getInstance().playSfx('sfx-click');
+        AudioManager.getInstance().playSfx('sfx-confirm');
         this.startBattle();
       });
     }
@@ -98,7 +94,14 @@ export class SetupScene extends Scene {
     this.input.keyboard?.on('keydown-ENTER', () => this.startBattle());
     this.input.keyboard?.on('keydown-SPACE', () => this.startBattle());
 
-    this.refreshPreview();
+    setTimeout(() => {
+      this.missionIds = contentLoader.getAllMissionTemplates().map((template) => template.id);
+      if (this.missionIds.length === 0) {
+        this.missionIds = ['coop_boss_kill'];
+      }
+      this.missionIndex = Math.min(this.missionIndex, this.missionIds.length - 1);
+      this.refreshPreview();
+    }, 0);
   }
 
   private createButton(x: number, y: number, label: string, onClick: () => void): void {
