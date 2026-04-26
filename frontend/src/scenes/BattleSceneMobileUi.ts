@@ -84,7 +84,7 @@ export function getBattleSceneGuidanceText(context: BattleSceneMobileContext): s
 
     switch (context.actionMode) {
       case 'move':
-        return `${context.selectedUnitLabel} 已选中，轻点绿色可达格移动；不想走位就直接点下方按钮继续行动。`;
+        return `${context.selectedUnitLabel} 已选中，轻点蓝色可达格移动；不想走位就直接点下方按钮继续行动。`;
       case 'basic':
         return `已切到普攻，轻点红色高亮敌人出手；想换别的操作就点下方按钮。`;
       case 'skill':

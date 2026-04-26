@@ -165,7 +165,7 @@ export class AssetIntake {
 
   private generateMarkerPlaceholder(graphics: Phaser.GameObjects.Graphics, key: string): void {
     const colors: Record<string, number> = {
-      'marker-extraction': 0x00ff00,
+      'marker-extraction': 0x44aaff,
       'marker-objective': 0xffff00,
       'marker-relic': 0xffd700,
       'marker-boss': 0xff0000,
