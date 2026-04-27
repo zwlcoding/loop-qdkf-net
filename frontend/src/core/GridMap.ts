@@ -37,6 +37,43 @@ export interface GridMapViewport {
   height: number;
 }
 
+export type ExposedWallEdge = 'east' | 'south';
+
+export interface IsoPoint {
+  x: number;
+  y: number;
+}
+
+export interface ExposedSideWall {
+  edge: ExposedWallEdge;
+  heightLevels: number;
+  wallHeight: number;
+  color: number;
+  shadowColor: number;
+  lineColor: number;
+  vertices: {
+    topA: IsoPoint;
+    topB: IsoPoint;
+    bottomA: IsoPoint;
+    bottomB: IsoPoint;
+  };
+}
+
+export interface GridMapWorldBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+function darkenColor(color: number, amount: number): number {
+  const factor = Math.max(0, Math.min(1, 1 - amount));
+  const r = Math.round(((color >> 16) & 0xff) * factor);
+  const g = Math.round(((color >> 8) & 0xff) * factor);
+  const b = Math.round((color & 0xff) * factor);
+  return (r << 16) | (g << 8) | b;
+}
+
 export class GridMap {
   private scene: Scene;
   private tiles: TileData[][];
@@ -44,6 +81,7 @@ export class GridMap {
   private width: number;
   private height: number;
   private tileGraphics: GameObjects.Graphics;
+  private edgeGraphics: GameObjects.Graphics;
   private tileIconTexts: GameObjects.Text[][];
   private highlightGraphics: GameObjects.Graphics;
   private pathGraphics: GameObjects.Graphics;
@@ -63,6 +101,8 @@ export class GridMap {
     this.tiles = [];
     this.tileGraphics = scene.add.graphics();
     this.tileGraphics.setDepth(1);
+    this.edgeGraphics = scene.add.graphics();
+    this.edgeGraphics.setDepth(3);
     this.tileIconTexts = [];
     this.highlightGraphics = scene.add.graphics();
     this.pathGraphics = scene.add.graphics();
@@ -184,47 +224,160 @@ export class GridMap {
 
   // ─── Isometric coordinate conversion ─────────────────────────────────
 
+  getElevationLevelHeight(): number {
+    return Math.max(10, Math.round(this.tileSize * 0.24));
+  }
+
+  private getMapOrigin(): { x: number; y: number } {
+    const mapWidth = (this.width + this.height) * (this.tileSize / 2);
+    const mapHeight = (this.width + this.height) * (this.tileSize / 4);
+    return {
+      x: this.viewport.x + (this.viewport.width - mapWidth) / 2 + this.tileSize / 2,
+      y: this.viewport.y + (this.viewport.height - mapHeight) / 2,
+    };
+  }
+
+  tileToGroundCenter(x: number, y: number): { px: number; py: number } {
+    const origin = this.getMapOrigin();
+    return {
+      px: (x - y) * (this.tileSize / 2) + origin.x,
+      py: (x + y) * (this.tileSize / 4) + origin.y,
+    };
+  }
+
+  tileToTopCenter(x: number, y: number): { px: number; py: number } {
+    const ground = this.tileToGroundCenter(x, y);
+    const tile = this.getTile(x, y);
+    const tileHeight = tile ? tile.height : 0;
+    return {
+      px: ground.px,
+      py: ground.py - tileHeight * this.getElevationLevelHeight(),
+    };
+  }
+
+  getTileDepth(x: number, y: number, layerOffset: number = 0): number {
+    const tile = this.getTile(x, y);
+    return 2 + (x + y) * 0.1 + (tile?.height ?? 0) * 0.02 + layerOffset;
+  }
+
+  private getTerrainWallMaterial(terrain: TileData['terrain']): { color: number; shadowColor: number; lineColor: number } {
+    const materials: Record<TileData['terrain'], { color: number; shadowColor: number; lineColor: number }> = {
+      grass: { color: 0x568e3f, shadowColor: 0x2f5b2e, lineColor: 0x8ecf63 },
+      dirt: { color: 0x7a5734, shadowColor: 0x4e3420, lineColor: 0xb0834d },
+      stone: { color: 0x6f7880, shadowColor: 0x424950, lineColor: 0xa6afb8 },
+      water: { color: 0x286d9e, shadowColor: 0x184464, lineColor: 0x72d4ff },
+      plain: { color: 0x5f9f43, shadowColor: 0x315e2d, lineColor: 0x9ad96f },
+      mountain: { color: 0x806044, shadowColor: 0x4a382a, lineColor: 0xb9966f },
+      urban: { color: 0x6d7379, shadowColor: 0x3e454c, lineColor: 0xb7c0c8 },
+      forest: { color: 0x3f753a, shadowColor: 0x234b25, lineColor: 0x77b95d },
+    };
+
+    return materials[terrain];
+  }
+
+  getExposedSideWalls(x: number, y: number): ExposedSideWall[] {
+    const tile = this.getTile(x, y);
+    if (!tile || tile.height <= 0) {
+      return [];
+    }
+
+    const { px: cx, py: cy } = this.tileToTopCenter(x, y);
+    const halfW = this.tileSize / 2;
+    const halfH = this.tileSize / 4;
+    const material = this.getTerrainWallMaterial(tile.terrain);
+    const bottom: IsoPoint = { x: cx, y: cy + halfH };
+    const left: IsoPoint = { x: cx - halfW, y: cy };
+    const right: IsoPoint = { x: cx + halfW, y: cy };
+
+    const candidates: Array<{
+      edge: ExposedWallEdge;
+      neighbor: TileData | null;
+      topA: IsoPoint;
+      topB: IsoPoint;
+      shade: number;
+    }> = [
+      { edge: 'south', neighbor: this.getTile(x, y + 1), topA: left, topB: bottom, shade: 0.88 },
+      { edge: 'east', neighbor: this.getTile(x + 1, y), topA: bottom, topB: right, shade: 1 },
+    ];
+
+    return candidates.flatMap((candidate) => {
+      const neighborHeight = candidate.neighbor?.height ?? 0;
+      const heightLevels = tile.height - neighborHeight;
+      if (heightLevels <= 0) {
+        return [];
+      }
+
+      const wallHeight = heightLevels * this.getElevationLevelHeight();
+      const color = darkenColor(material.color, 1 - candidate.shade);
+      return [{
+        edge: candidate.edge,
+        heightLevels,
+        wallHeight,
+        color,
+        shadowColor: material.shadowColor,
+        lineColor: material.lineColor,
+        vertices: {
+          topA: candidate.topA,
+          topB: candidate.topB,
+          bottomA: { x: candidate.topA.x, y: candidate.topA.y + wallHeight },
+          bottomB: { x: candidate.topB.x, y: candidate.topB.y + wallHeight },
+        },
+      }];
+    });
+  }
+
   /**
    * Grid tile center → pixel center (isometric)
    */
   tileToIso(x: number, y: number): { px: number; py: number } {
-    const tile = this.getTile(x, y);
-    const tileHeight = tile ? tile.height : 0;
-    const isoX = (x - y) * (this.tileSize / 2);
-    const isoY = (x + y) * (this.tileSize / 4);
-    // Center the map on screen
-    const mapWidth = (this.width + this.height) * (this.tileSize / 2);
-    const mapHeight = (this.width + this.height) * (this.tileSize / 4);
-    const offsetX = this.viewport.x + (this.viewport.width - mapWidth) / 2 + this.tileSize / 2;
-    const offsetY = this.viewport.y + (this.viewport.height - mapHeight) / 2;
-    return {
-      px: isoX + offsetX,
-      py: isoY + offsetY - tileHeight * 16,
-    };
+    return this.tileToTopCenter(x, y);
   }
 
   /**
    * Pixel position → grid tile (inverse isometric)
    */
   isoToTile(px: number, py: number): { x: number; y: number } | null {
-    const mapWidth = (this.width + this.height) * (this.tileSize / 2);
-    const mapHeight = (this.width + this.height) * (this.tileSize / 4);
-    const offsetX = this.viewport.x + (this.viewport.width - mapWidth) / 2 + this.tileSize / 2;
-    const offsetY = this.viewport.y + (this.viewport.height - mapHeight) / 2;
-    const rx = px - offsetX;
-    const ry = py - offsetY;
-    const tileX = (rx / (this.tileSize / 2) + ry / (this.tileSize / 4)) / 2;
-    const tileY = (ry / (this.tileSize / 4) - rx / (this.tileSize / 2)) / 2;
-    const tx = Math.floor(tileX);
-    const ty = Math.floor(tileY);
-    if (tx < 0 || tx >= this.width || ty < 0 || ty >= this.height) return null;
-    return { x: tx, y: ty };
+    return this.pickTileAtWorld(px, py);
+  }
+
+  screenToTile(
+    screenX: number,
+    screenY: number,
+    camera?: { scrollX?: number; scrollY?: number; zoom?: number }
+  ): { x: number; y: number } | null {
+    const zoom = camera?.zoom && camera.zoom > 0 ? camera.zoom : 1;
+    return this.worldToTile(
+      (screenX / zoom) + (camera?.scrollX ?? 0),
+      (screenY / zoom) + (camera?.scrollY ?? 0)
+    );
+  }
+
+  private pickTileAtWorld(wx: number, wy: number): { x: number; y: number } | null {
+    let best: { x: number; y: number; depth: number } | null = null;
+    const halfW = this.tileSize / 2;
+    const halfH = this.tileSize / 4;
+
+    for (let x = 0; x < this.width; x++) {
+      for (let y = 0; y < this.height; y++) {
+        const { px, py } = this.tileToTopCenter(x, y);
+        const normalized = Math.abs(wx - px) / halfW + Math.abs(wy - py) / halfH;
+        if (normalized <= 1) {
+          const depth = this.getTileDepth(x, y);
+          if (!best || depth >= best.depth) {
+            best = { x, y, depth };
+          }
+        }
+      }
+    }
+
+    return best ? { x: best.x, y: best.y } : null;
   }
 
   // ─── Rendering ───────────────────────────────────────────────────────
 
   private renderMap(): void {
     this.tileGraphics.clear();
+    this.edgeGraphics.clear();
 
     // Clean up previous diamond mask graphics
     for (let mx = 0; mx < this.tileMaskGraphics.length; mx++) {
@@ -242,7 +395,7 @@ export class GridMap {
       this.tileMaskGraphics[x] = [];
       for (let y = 0; y < this.height; y++) {
         const tile = this.tiles[x][y];
-        const { px: cx, py: cy } = this.tileToIso(x, y);
+        const { px: cx, py: cy } = this.tileToTopCenter(x, y);
         const halfW = this.tileSize / 2;
         const halfH = this.tileSize / 4;
 
@@ -256,35 +409,37 @@ export class GridMap {
         const leftX = cx - halfW;
         const leftY = cy;
 
-        // --- Draw height side faces for tiles with height > 0 ---
         if (tile.height > 0) {
-          const sideH = tile.height * 16;
+          const shadowOffset = Math.max(4, this.getElevationLevelHeight() * 0.35);
+          this.tileGraphics.fillStyle(0x000000, 0.18);
+          this.tileGraphics.fillTriangle(topX, topY + shadowOffset, rightX, rightY + shadowOffset, bottomX, bottomY + shadowOffset);
+          this.tileGraphics.fillTriangle(topX, topY + shadowOffset, leftX, leftY + shadowOffset, bottomX, bottomY + shadowOffset);
+        }
 
-          // Left side face (darker)
-          this.tileGraphics.fillStyle(0x000000, 0.35);
-          this.tileGraphics.fillTriangle(
-            leftX, leftY,
-            bottomX, bottomY,
-            bottomX, bottomY + sideH,
-          );
-          this.tileGraphics.fillTriangle(
-            leftX, leftY,
-            leftX, leftY + sideH,
-            bottomX, bottomY + sideH,
-          );
+        for (const wall of this.getExposedSideWalls(x, y)) {
+          const { topA, topB, bottomA, bottomB } = wall.vertices;
+          this.tileGraphics.fillStyle(wall.shadowColor, 0.95);
+          this.tileGraphics.fillTriangle(topA.x, topA.y, topB.x, topB.y, bottomB.x, bottomB.y);
+          this.tileGraphics.fillStyle(wall.color, 0.95);
+          this.tileGraphics.fillTriangle(topA.x, topA.y, bottomA.x, bottomA.y, bottomB.x, bottomB.y);
 
-          // Right side face (slightly lighter)
-          this.tileGraphics.fillStyle(0x000000, 0.25);
-          this.tileGraphics.fillTriangle(
-            rightX, rightY,
-            bottomX, bottomY,
-            bottomX, bottomY + sideH,
-          );
-          this.tileGraphics.fillTriangle(
-            rightX, rightY,
-            rightX, rightY + sideH,
-            bottomX, bottomY + sideH,
-          );
+          this.tileGraphics.lineStyle(1, wall.lineColor, 0.45);
+          this.tileGraphics.beginPath();
+          this.tileGraphics.moveTo(topA.x, topA.y);
+          this.tileGraphics.lineTo(topB.x, topB.y);
+          this.tileGraphics.lineTo(bottomB.x, bottomB.y);
+          this.tileGraphics.lineTo(bottomA.x, bottomA.y);
+          this.tileGraphics.closePath();
+          this.tileGraphics.strokePath();
+
+          for (let level = 1; level < wall.heightLevels; level++) {
+            const yOffset = level * this.getElevationLevelHeight();
+            this.tileGraphics.lineStyle(1, wall.lineColor, 0.3);
+            this.tileGraphics.beginPath();
+            this.tileGraphics.moveTo(topA.x, topA.y + yOffset);
+            this.tileGraphics.lineTo(topB.x, topB.y + yOffset);
+            this.tileGraphics.strokePath();
+          }
         }
 
         // --- Draw tile sprite ---
@@ -297,8 +452,7 @@ export class GridMap {
         const scaleX = this.tileSize / img.width;
         const scaleY = (this.tileSize / 2) / img.height;
         img.setScale(Math.max(scaleX, scaleY));
-        // Depth 2 ensures sprites render above tileGraphics (depth 1)
-        img.setDepth(2);
+        img.setDepth(this.getTileDepth(x, y, 0.1));
         img.setAlpha(tile.walkable ? 1 : 0.65);
 
         // Apply visual overlays directly via sprite tint instead of drawing
@@ -328,14 +482,22 @@ export class GridMap {
         this.tileMaskGraphics[x][y] = maskGfx;
 
         // --- Diamond outline ---
-        this.tileGraphics.lineStyle(1, 0x000000, 0.25);
-        this.tileGraphics.beginPath();
-        this.tileGraphics.moveTo(topX, topY);
-        this.tileGraphics.lineTo(rightX, rightY);
-        this.tileGraphics.lineTo(bottomX, bottomY);
-        this.tileGraphics.lineTo(leftX, leftY);
-        this.tileGraphics.closePath();
-        this.tileGraphics.strokePath();
+        this.edgeGraphics.lineStyle(2, 0xffffff, tile.height > 0 ? 0.2 : 0.1);
+        this.edgeGraphics.beginPath();
+        this.edgeGraphics.moveTo(topX, topY);
+        this.edgeGraphics.lineTo(rightX, rightY);
+        this.edgeGraphics.lineTo(bottomX, bottomY);
+        this.edgeGraphics.lineTo(leftX, leftY);
+        this.edgeGraphics.closePath();
+        this.edgeGraphics.strokePath();
+        this.edgeGraphics.lineStyle(1, 0x000000, 0.3);
+        this.edgeGraphics.beginPath();
+        this.edgeGraphics.moveTo(topX, topY);
+        this.edgeGraphics.lineTo(rightX, rightY);
+        this.edgeGraphics.lineTo(bottomX, bottomY);
+        this.edgeGraphics.lineTo(leftX, leftY);
+        this.edgeGraphics.closePath();
+        this.edgeGraphics.strokePath();
       }
     }
   }
@@ -358,6 +520,46 @@ export class GridMap {
       forest: '#2e7d32',
     };
     return map[terrain] ?? '#888888';
+  }
+
+  getWorldBounds(padding: number = 0): GridMapWorldBounds {
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    const halfW = this.tileSize / 2;
+    const halfH = this.tileSize / 4;
+
+    for (let x = 0; x < this.width; x++) {
+      for (let y = 0; y < this.height; y++) {
+        const { px, py } = this.tileToTopCenter(x, y);
+        minX = Math.min(minX, px - halfW);
+        maxX = Math.max(maxX, px + halfW);
+        minY = Math.min(minY, py - halfH);
+        maxY = Math.max(maxY, py + halfH);
+
+        for (const wall of this.getExposedSideWalls(x, y)) {
+          const vertices = Object.values(wall.vertices);
+          for (const vertex of vertices) {
+            minX = Math.min(minX, vertex.x);
+            maxX = Math.max(maxX, vertex.x);
+            minY = Math.min(minY, vertex.y);
+            maxY = Math.max(maxY, vertex.y);
+          }
+        }
+      }
+    }
+
+    if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+      return { x: 0, y: 0, width: 0, height: 0 };
+    }
+
+    return {
+      x: minX - padding,
+      y: minY - padding,
+      width: maxX - minX + padding * 2,
+      height: maxY - minY + padding * 2,
+    };
   }
 
   // ─── Public accessors ────────────────────────────────────────────────

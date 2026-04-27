@@ -69,6 +69,82 @@ describe('GridMap terrain effects', () => {
     expect(grid.worldToTile(after.x, after.y)).toEqual({ x: 0, y: 0 });
   });
 
+  it('derives elevation level height from tile size', () => {
+    const scene = makeMockScene();
+    const grid = new GridMap(scene, 2, 2, 80);
+
+    expect(grid.getElevationLevelHeight()).toBe(19);
+
+    grid.setLayout(40, { x: 0, y: 0, width: 200, height: 160 });
+    expect(grid.getElevationLevelHeight()).toBe(10);
+  });
+
+  it('exposes side walls only where neighboring tiles are lower or missing', () => {
+    const scene = makeMockScene();
+    const grid = new GridMap(scene, 2, 2, 64, { x: 0, y: 0, width: 240, height: 160 });
+    (grid as any).tiles[0][0] = {
+      x: 0, y: 0, height: 2, walkable: true,
+      terrain: 'mountain', terrainFlags: ['obstacle', 'rough'],
+    };
+    (grid as any).tiles[1][0] = {
+      x: 1, y: 0, height: 2, walkable: true,
+      terrain: 'plain', terrainFlags: ['natural'],
+    };
+    (grid as any).tiles[0][1] = {
+      x: 0, y: 1, height: 0, walkable: true,
+      terrain: 'plain', terrainFlags: ['natural'],
+    };
+
+    const walls = grid.getExposedSideWalls(0, 0);
+
+    expect(walls.map((wall) => wall.edge)).toEqual(['south']);
+    expect(walls[0].heightLevels).toBe(2);
+    expect(walls[0].wallHeight).toBe(grid.getElevationLevelHeight() * 2);
+  });
+
+  it('draws boundary side walls for raised map edges', () => {
+    const scene = makeMockScene();
+    const grid = new GridMap(scene, 1, 1, 64, { x: 0, y: 0, width: 160, height: 120 });
+    (grid as any).tiles[0][0] = {
+      x: 0, y: 0, height: 1, walkable: true,
+      terrain: 'urban', terrainFlags: ['obstacle'],
+    };
+
+    const walls = grid.getExposedSideWalls(0, 0);
+
+    expect(walls.map((wall) => wall.edge).sort()).toEqual(['east', 'south']);
+    expect(new Set(walls.map((wall) => wall.color)).size).toBeGreaterThan(0);
+  });
+
+  it('uses elevated top centers for world positions and hit testing', () => {
+    const scene = makeMockScene();
+    const grid = new GridMap(scene, 2, 2, 64, { x: 0, y: 0, width: 240, height: 160 });
+    (grid as any).tiles[0][0].height = 0;
+    (grid as any).tiles[1][0].height = 2;
+
+    const ground = grid.tileToGroundCenter(1, 0);
+    const top = grid.getTileWorldPosition(1, 0);
+
+    expect(top.y).toBeCloseTo(ground.py - grid.getElevationLevelHeight() * 2);
+    expect(grid.worldToTile(top.x, top.y)).toEqual({ x: 1, y: 0 });
+    expect(grid.screenToTile(top.x - 100, top.y - 50, { scrollX: 100, scrollY: 50, zoom: 1 })).toEqual({ x: 1, y: 0 });
+  });
+
+  it('calculates world bounds that include elevated wall geometry', () => {
+    const scene = makeMockScene();
+    const grid = new GridMap(scene, 1, 1, 64, { x: 0, y: 0, width: 160, height: 120 });
+    (grid as any).tiles[0][0] = {
+      x: 0, y: 0, height: 2, walkable: true,
+      terrain: 'mountain', terrainFlags: ['obstacle', 'rough'],
+    };
+
+    const bounds = grid.getWorldBounds(12);
+
+    expect(bounds.width).toBeGreaterThan(64);
+    expect(bounds.height).toBeGreaterThan(32);
+    expect(bounds.x).toBeLessThan(grid.getTileWorldPosition(0, 0).x);
+  });
+
   it('findReachableTiles respects terrain moveCost', () => {
     const scene = makeMockScene();
     const grid = new GridMap(scene, 5, 5, 64);

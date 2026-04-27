@@ -205,5 +205,6 @@ export function calculateBattleMapTileSize(args: {
     return Math.max(fitSize, 24);
   }
 
-  return Math.min(Math.max(fitSize, 56), 72);
+  const localViewSize = Math.min(viewportWidth / 6, viewportHeight / 6.5);
+  return Math.round(Math.min(Math.max(localViewSize, 60), 84));
 }

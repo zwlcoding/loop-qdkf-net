@@ -17,6 +17,7 @@ import { recordBattle, type RiftRunState } from '../core/RiftRunManager';
 import { isMapComplete } from '../core/RiftMap';
 import { buildMissionMarkers } from '../core/BattleMarkers';
 import { filterReachableTilesByOccupancy, isTileOccupiedByOtherUnit } from '../core/BattleOccupancy';
+import { expandBattleCameraBounds, resolveBattleCameraScroll, type BattleCameraBounds } from '../core/BattleCamera';
 import { Unit } from '../entities/Unit';
 import { HpBar } from './HpBar';
 import { DamageText } from './DamageText';
@@ -76,6 +77,7 @@ export class BattleScene extends Scene {
   private readonly unitPreviousHp = new Map<string, number>();
   private readonly dyingUnits = new Set<string>();
   private battleTileSize = 48;
+  private battleCameraBounds: BattleCameraBounds | null = null;
 
   constructor() {
     super({ key: 'BattleScene' });
@@ -129,6 +131,8 @@ export class BattleScene extends Scene {
     this.setupInputHandlers();
     this.setupKeyboardShortcuts();
     this.refreshHud();
+    this.updateBattleCameraBounds();
+    this.focusBattleCameraOnUnit(this.turnManager.getActiveUnit());
 
     AudioManager.getInstance().playBgm('battle-bgm');
     this.scale.on('resize', this.handleSceneResize, this);
@@ -316,9 +320,17 @@ export class BattleScene extends Scene {
     const pos = unit.getWorldPosition();
     const squad = unit.getSquad();
     const shadowColor = squad === 0 ? 0x112244 : squad === 1 ? 0x441111 : 0x443311;
-    const shadow = this.add.ellipse(pos.x, pos.y + 20, 40, 14, shadowColor, 0.3)
-      .setDepth(4);
+    const shadow = this.add.ellipse(pos.x, pos.y + this.getUnitShadowOffset(), 40, 14, shadowColor, 0.3)
+      .setDepth(this.gridMap.getTileDepth(unit.getTileX(), unit.getTileY(), 0.35));
     this.unitBadges.set(unit.getId(), shadow);
+  }
+
+  private getUnitShadowOffset(): number {
+    return Math.max(8, this.battleTileSize * 0.14);
+  }
+
+  private getUnitHpOffset(): number {
+    return Math.max(40, this.battleTileSize * 0.82);
   }
 
   private createUnitHpBar(unit: Unit): void {
@@ -399,7 +411,8 @@ export class BattleScene extends Scene {
         return;
       }
       const pos = unit.getWorldPosition();
-      badge.setPosition(pos.x, pos.y + 20);
+      badge.setPosition(pos.x, pos.y + this.getUnitShadowOffset());
+      badge.setDepth?.(this.gridMap.getTileDepth(unit.getTileX(), unit.getTileY(), 0.35));
       badge.setAlpha(unit.isAlive() ? 0.3 : 0.1);
     });
     this.syncHpBars();
@@ -413,6 +426,7 @@ export class BattleScene extends Scene {
       if (this.dyingUnits.has(unit.getId())) return;
       unit.syncSpriteToWorldPosition();
       unit.getSprite().setDisplaySize(unitSize, unitSize);
+      unit.getSprite().setDepth?.(this.gridMap.getTileDepth(unit.getTileX(), unit.getTileY(), 0.7));
     });
   }
 
@@ -425,7 +439,8 @@ export class BattleScene extends Scene {
       }
 
       const pos = unit.getWorldPosition();
-      hpBar.setPosition(pos.x, pos.y - 42);
+      hpBar.setPosition(pos.x, pos.y - this.getUnitHpOffset());
+      hpBar.setDepth(this.gridMap.getTileDepth(unit.getTileX(), unit.getTileY(), 1.3));
       hpBar.setAlpha(unit.isAlive() ? 1 : 0.45);
     });
   }
@@ -683,6 +698,50 @@ export class BattleScene extends Scene {
     });
   }
 
+  private isPointerInRect(pointer: Input.Pointer, rect: { x: number; y: number; width: number; height: number }): boolean {
+    return pointer.x >= rect.x
+      && pointer.x <= rect.x + rect.width
+      && pointer.y >= rect.y
+      && pointer.y <= rect.y + rect.height;
+  }
+
+  private isPointerOverUi(pointer: Input.Pointer): boolean {
+    const layout = this.getLayout();
+    if (layout.actionBar.visible && this.isPointerInRect(pointer, {
+      x: layout.actionBar.position.x,
+      y: layout.actionBar.position.y,
+      width: layout.actionBar.width,
+      height: layout.actionBar.buttonHeight * 2 + layout.actionBar.gap,
+    })) {
+      return true;
+    }
+
+    const hudHeight = Number((this.hudText as unknown as { height?: number }).height ?? 0);
+    const logHeight = Number((this.logText as unknown as { height?: number }).height ?? 0);
+    const debugHeight = this.showDebugOverlay ? Number((this.debugText as unknown as { height?: number }).height ?? 0) : 0;
+
+    return this.isPointerInRect(pointer, {
+      x: layout.hud.position.x,
+      y: layout.hud.position.y,
+      width: layout.hud.wrapWidth,
+      height: hudHeight,
+    }) || this.isPointerInRect(pointer, {
+      x: layout.log.position.x,
+      y: layout.log.position.y,
+      width: layout.log.wrapWidth,
+      height: logHeight,
+    }) || (this.showDebugOverlay && this.isPointerInRect(pointer, {
+      x: layout.debug.position.x,
+      y: layout.debug.position.y,
+      width: layout.debug.wrapWidth,
+      height: debugHeight,
+    }));
+  }
+
+  private pointerToBattleTile(pointer: Input.Pointer): { x: number; y: number } | null {
+    return this.gridMap.screenToTile(pointer.x, pointer.y, this.cameras.main);
+  }
+
   private handlePortraitAction(action: BattleSceneActionBarAction['id']): void {
     if (this.battleEnded) {
       return;
@@ -777,6 +836,77 @@ export class BattleScene extends Scene {
       this.renderPathPreview();
     }
     this.updateMissionMarkers();
+    this.updateBattleCameraBounds();
+    this.focusBattleCameraOnCurrentContext();
+  }
+
+  private updateBattleCameraBounds(): void {
+    if (!this.gridMap) {
+      return;
+    }
+
+    const padding = Math.max(72, this.battleTileSize * 1.4);
+    this.battleCameraBounds = expandBattleCameraBounds(this.gridMap.getWorldBounds(), padding);
+    this.cameras.main.setBounds(
+      this.battleCameraBounds.x,
+      this.battleCameraBounds.y,
+      this.battleCameraBounds.width,
+      this.battleCameraBounds.height
+    );
+  }
+
+  private focusBattleCameraOnPoint(point: { x: number; y: number }): void {
+    if (!this.gridMap) {
+      return;
+    }
+
+    if (!this.battleCameraBounds) {
+      this.updateBattleCameraBounds();
+    }
+
+    if (!this.battleCameraBounds) {
+      return;
+    }
+
+    const scroll = resolveBattleCameraScroll({
+      bounds: this.battleCameraBounds,
+      viewport: this.getLayout().battleViewport,
+      focus: point,
+    });
+    this.cameras.main.setScroll(scroll.scrollX, scroll.scrollY);
+  }
+
+  private focusBattleCameraOnUnit(unit: Unit | null): void {
+    if (!unit) {
+      return;
+    }
+
+    this.focusBattleCameraOnPoint(unit.getWorldPosition());
+  }
+
+  private focusBattleCameraOnTiles(tiles: Array<{ x: number; y: number }>): void {
+    if (tiles.length === 0) {
+      return;
+    }
+
+    const points = tiles.map((tile) => this.gridMap.getTileWorldPosition(tile.x, tile.y));
+    const minX = Math.min(...points.map((point) => point.x));
+    const maxX = Math.max(...points.map((point) => point.x));
+    const minY = Math.min(...points.map((point) => point.y));
+    const maxY = Math.max(...points.map((point) => point.y));
+    this.focusBattleCameraOnPoint({ x: (minX + maxX) / 2, y: (minY + maxY) / 2 });
+  }
+
+  private focusBattleCameraOnCurrentContext(): void {
+    if (this.selectedUnit && this.targetableTiles.length > 0) {
+      this.focusBattleCameraOnTiles([
+        { x: this.selectedUnit.getTileX(), y: this.selectedUnit.getTileY() },
+        this.targetableTiles[0],
+      ]);
+      return;
+    }
+
+    this.focusBattleCameraOnUnit(this.selectedUnit ?? this.turnManager?.getActiveUnit?.() ?? null);
   }
 
   private refreshPortraitActionBar(): void {
@@ -805,7 +935,11 @@ export class BattleScene extends Scene {
       return;
     }
 
-    const tilePos = this.gridMap.worldToTile(pointer.x, pointer.y);
+    if (this.isPointerOverUi(pointer)) {
+      return;
+    }
+
+    const tilePos = this.pointerToBattleTile(pointer);
     if (!tilePos) {
       this.clearPathPreview();
       return;
@@ -821,6 +955,10 @@ export class BattleScene extends Scene {
         this.hoveredTile = tilePos;
         this.pathPreview = reachable.path;
         this.renderPathPreview();
+        this.focusBattleCameraOnTiles([
+          { x: this.selectedUnit.getTileX(), y: this.selectedUnit.getTileY() },
+          tilePos,
+        ]);
       } else {
         this.clearPathPreview();
       }
@@ -832,7 +970,11 @@ export class BattleScene extends Scene {
       return;
     }
 
-    const tilePos = this.gridMap.worldToTile(pointer.x, pointer.y);
+    if (this.isPointerOverUi(pointer)) {
+      return;
+    }
+
+    const tilePos = this.pointerToBattleTile(pointer);
     if (!tilePos) return;
 
     const clickedUnit = this.units.find((unit) => unit.getTileX() === tilePos.x && unit.getTileY() === tilePos.y && unit.isAlive());
@@ -884,6 +1026,7 @@ export class BattleScene extends Scene {
     }
 
     this.refreshActionOverlay();
+    this.focusBattleCameraOnUnit(unit);
     this.refreshHud();
   }
 
@@ -935,6 +1078,7 @@ export class BattleScene extends Scene {
     }
 
     this.refreshActionOverlay();
+    this.focusBattleCameraOnCurrentContext();
     this.refreshHud();
   }
 
@@ -1113,6 +1257,7 @@ export class BattleScene extends Scene {
     }
 
     this.selectUnit(unit);
+    this.focusBattleCameraOnUnit(unit);
     this.refreshHud('移动完成。现在可以普攻、放技能、发起连携、用道具或结束回合。');
   }
 
@@ -1131,6 +1276,11 @@ export class BattleScene extends Scene {
     if (!this.selectedUnit || !targetUnit.isAlive() || this.actionMode === 'move') {
       return;
     }
+
+    this.focusBattleCameraOnTiles([
+      { x: this.selectedUnit.getTileX(), y: this.selectedUnit.getTileY() },
+      { x: targetUnit.getTileX(), y: targetUnit.getTileY() },
+    ]);
 
     const actor = this.buildUnitState(this.selectedUnit);
     const target = {
@@ -1448,6 +1598,7 @@ export class BattleScene extends Scene {
     this.clearReachableTiles();
     this.syncUnitBadges();
     this.refreshHud(extracted ? '单位已撤离，切换到下一回合。' : '回合结束。');
+    this.focusBattleCameraOnUnit(this.turnManager.getActiveUnit());
   }
 
   private spawnDamageText(targetUnit: Unit, value: number, type: 'damage' | 'heal' | 'miss' | 'critical'): void {
