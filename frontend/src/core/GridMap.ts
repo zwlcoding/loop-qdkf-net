@@ -43,6 +43,7 @@ export class GridMap {
   private pressureGraphics: GameObjects.Graphics;
   private markerTexts: GameObjects.Text[] = [];
   private tileSprites: (GameObjects.Image | null)[][] = [];
+  private tileMaskGraphics: GameObjects.Graphics[][] = [];
 
   constructor(scene: Scene, width: number, height: number, tileSize: number = 64) {
     this.scene = scene;
@@ -73,6 +74,7 @@ export class GridMap {
       this.tiles[x] = [];
       this.tileIconTexts[x] = [];
       this.tileSprites[x] = [];
+      this.tileMaskGraphics[x] = [];
       for (let y = 0; y < this.height; y++) {
         const height = Math.floor(Math.random() * 3);
         const terrain = this.determineTerrain(x, y);
@@ -216,7 +218,20 @@ export class GridMap {
   private renderMap(): void {
     this.tileGraphics.clear();
 
+    // Clean up previous diamond mask graphics
+    for (let mx = 0; mx < this.tileMaskGraphics.length; mx++) {
+      if (this.tileMaskGraphics[mx]) {
+        for (let my = 0; my < this.tileMaskGraphics[mx].length; my++) {
+          if (this.tileMaskGraphics[mx][my]) {
+            this.tileMaskGraphics[mx][my]!.destroy();
+          }
+        }
+      }
+    }
+    this.tileMaskGraphics = [];
+
     for (let x = 0; x < this.width; x++) {
+      this.tileMaskGraphics[x] = [];
       for (let y = 0; y < this.height; y++) {
         const tile = this.tiles[x][y];
         const { px: cx, py: cy } = this.tileToIso(x, y);
@@ -288,6 +303,21 @@ export class GridMap {
           img.setTint(0xe0c0ff);
         }
         this.tileSprites[x][y] = img;
+
+        // --- Diamond geometry mask: clip sprite to tile boundaries ---
+        const maskGfx = this.scene.add.graphics();
+        maskGfx.setDepth(-1);
+        maskGfx.fillStyle(0x333333);
+        maskGfx.fillTriangle(cx, cy - halfH, cx + halfW, cy, cx, cy + halfH);
+        maskGfx.fillTriangle(cx, cy - halfH, cx - halfW, cy, cx, cy + halfH);
+        // Geometry mask creation (Phaser runtime only; guarded for test mocks)
+        if (typeof maskGfx.createGeometryMask === 'function') {
+          const geomMask = maskGfx.createGeometryMask();
+          if (typeof img.setMask === 'function') {
+            img.setMask(geomMask);
+          }
+        }
+        this.tileMaskGraphics[x][y] = maskGfx;
 
         // --- Diamond outline ---
         this.tileGraphics.lineStyle(1, 0x000000, 0.25);
