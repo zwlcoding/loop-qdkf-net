@@ -88,10 +88,6 @@ export class BattleScene extends Scene {
     this.battleTileSize = tileSize;
     this.gridMap = new GridMap(this, 16, 12, tileSize, layout.battleViewport);
     this.registry.set('gridMap', this.gridMap);
-    this.scale.on('resize', this.handleSceneResize, this);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.scale.off('resize', this.handleSceneResize, this);
-    });
 
     this.turnManager = new TurnManager();
     this.combatResolver = new CombatResolver(this.gridMap);
@@ -135,6 +131,10 @@ export class BattleScene extends Scene {
     this.refreshHud();
 
     AudioManager.getInstance().playBgm('battle-bgm');
+    this.scale.on('resize', this.handleSceneResize, this);
+    this.events.once('shutdown', () => {
+      this.scale.off('resize', this.handleSceneResize, this);
+    });
   }
 
   private resolveBattleSetup(): BattleSetup {
@@ -752,6 +752,10 @@ export class BattleScene extends Scene {
   }
 
   private handleSceneResize(): void {
+    if (!this.gridMap || !this.missionManager || !this.hudText || !this.logText || !this.debugText) {
+      return;
+    }
+
     this.reflowBattleMap();
     this.updateResponsiveLayout();
     this.refreshPortraitActionBar();
