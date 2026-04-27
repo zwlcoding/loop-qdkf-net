@@ -42,11 +42,19 @@ const makeMockScene = () =>
     },
   }) as any;
 
+const setAllTileHeights = (grid: GridMap, height: number): void => {
+  for (let x = 0; x < (grid as any).tiles.length; x += 1) {
+    for (let y = 0; y < (grid as any).tiles[x].length; y += 1) {
+      (grid as any).tiles[x][y].height = height;
+    }
+  }
+};
+
 describe('GridMap terrain effects', () => {
   it('centers isometric coordinates inside the configured battle viewport', () => {
     const scene = makeMockScene();
     const grid = new GridMap(scene, 2, 2, 64, { x: 100, y: 200, width: 300, height: 180 });
-    (grid as any).tiles[0][0].height = 0;
+    setAllTileHeights(grid, 0);
 
     const pos = grid.getTileWorldPosition(0, 0);
     expect(pos.x).toBeCloseTo(218);
@@ -57,11 +65,11 @@ describe('GridMap terrain effects', () => {
   it('updates coordinate conversion when the battle viewport changes', () => {
     const scene = makeMockScene();
     const grid = new GridMap(scene, 2, 2, 64, { x: 0, y: 0, width: 200, height: 160 });
-    (grid as any).tiles[0][0].height = 0;
+    setAllTileHeights(grid, 0);
     const before = grid.getTileWorldPosition(0, 0);
 
     grid.setLayout(64, { x: 40, y: 80, width: 200, height: 160 });
-    (grid as any).tiles[0][0].height = 0;
+    setAllTileHeights(grid, 0);
     const after = grid.getTileWorldPosition(0, 0);
 
     expect(after.x - before.x).toBeCloseTo(40);
