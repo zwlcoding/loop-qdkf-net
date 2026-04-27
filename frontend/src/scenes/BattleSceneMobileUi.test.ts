@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  calculateBattleMapTileSize,
   getBattleSceneActionBarState,
   getBattleSceneGuidanceText,
   getBattleSceneLayout,
@@ -80,6 +81,34 @@ describe('BattleSceneMobileUi', () => {
     expect(layout.actionBar.position.y).toBeGreaterThan(layout.log.position.y);
     expect(layout.log.maxLines).toBe(3);
     expect(layout.hud.compact).toBe(true);
+    expect(layout.battleViewport.y).toBeGreaterThan(layout.hud.position.y);
+    expect(layout.battleViewport.y + layout.battleViewport.height).toBeLessThan(layout.log.position.y);
+  });
+
+  it('keeps portrait battle tiles readable instead of shrinking to full-map fit only', () => {
+    const layout = getBattleSceneLayout({ width: 720, height: 1280, isPortrait: true, debugVisible: false });
+    const tileSize = calculateBattleMapTileSize({
+      viewportWidth: layout.battleViewport.width,
+      viewportHeight: layout.battleViewport.height,
+      gridWidth: 16,
+      gridHeight: 12,
+      isPortrait: true,
+    });
+
+    expect(tileSize).toBeGreaterThanOrEqual(56);
+  });
+
+  it('uses viewport fit sizing for landscape battle maps', () => {
+    const layout = getBattleSceneLayout({ width: 1280, height: 720, isPortrait: false, debugVisible: false });
+    const tileSize = calculateBattleMapTileSize({
+      viewportWidth: layout.battleViewport.width,
+      viewportHeight: layout.battleViewport.height,
+      gridWidth: 16,
+      gridHeight: 12,
+      isPortrait: false,
+    });
+
+    expect(tileSize).toBeGreaterThan(70);
   });
 
   it('disables touch actions that the selected unit cannot use', () => {

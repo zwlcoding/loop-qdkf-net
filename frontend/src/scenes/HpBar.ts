@@ -43,6 +43,7 @@ export class HpBar {
       this.background,
       this.fill,
     ]);
+    this.container.setDepth?.(15);
 
     this.update(parentUnit.getHp(), parentUnit.getMaxHp());
   }

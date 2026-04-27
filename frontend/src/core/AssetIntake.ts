@@ -137,9 +137,16 @@ export class AssetIntake {
     };
 
     graphics.fillStyle(colors[key] || 0x888888, 1);
-    graphics.fillRect(0, 0, 64, 64);
+    graphics.fillTriangle(32, 14, 60, 32, 32, 50);
+    graphics.fillTriangle(32, 14, 4, 32, 32, 50);
     graphics.lineStyle(2, 0x000000, 0.3);
-    graphics.strokeRect(0, 0, 64, 64);
+    graphics.beginPath();
+    graphics.moveTo(32, 14);
+    graphics.lineTo(60, 32);
+    graphics.lineTo(32, 50);
+    graphics.lineTo(4, 32);
+    graphics.closePath();
+    graphics.strokePath();
     
     graphics.generateTexture(key, 64, 64);
     graphics.clear();

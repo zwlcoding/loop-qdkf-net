@@ -45,6 +45,12 @@ export interface BattleSceneLayoutResult {
     gap: number;
     visible: boolean;
   };
+  battleViewport: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 export function getBattleSceneActionBarState(context: BattleSceneMobileContext): BattleSceneActionBarAction[] {
@@ -115,6 +121,8 @@ export function getBattleSceneLayout(args: {
     const actionBarWidth = Math.max(248, width - 24);
     const actionBarY = Math.max(0, height - 164);
     const logY = Math.max(96, actionBarY - 94);
+    const battleTop = 184;
+    const battleBottom = Math.max(battleTop + 240, logY - 14);
     return {
       hud: {
         position: { x: 12, y: 12 },
@@ -138,6 +146,12 @@ export function getBattleSceneLayout(args: {
         buttonHeight: 42,
         gap: 8,
         visible: true,
+      },
+      battleViewport: {
+        x: 0,
+        y: battleTop,
+        width,
+        height: Math.max(240, battleBottom - battleTop),
       },
     };
   }
@@ -166,5 +180,30 @@ export function getBattleSceneLayout(args: {
       gap: 0,
       visible: false,
     },
+    battleViewport: {
+      x: 0,
+      y: 0,
+      width,
+      height,
+    },
   };
+}
+
+export function calculateBattleMapTileSize(args: {
+  viewportWidth: number;
+  viewportHeight: number;
+  gridWidth: number;
+  gridHeight: number;
+  isPortrait: boolean;
+}): number {
+  const { viewportWidth, viewportHeight, gridWidth, gridHeight, isPortrait } = args;
+  const fitByWidth = (viewportWidth / (gridWidth + gridHeight)) * 2;
+  const fitByHeight = (viewportHeight / ((gridWidth + gridHeight) / 2)) * 2;
+  const fitSize = Math.min(fitByWidth, fitByHeight) * 0.92;
+
+  if (!isPortrait) {
+    return Math.max(fitSize, 24);
+  }
+
+  return Math.min(Math.max(fitSize, 56), 72);
 }

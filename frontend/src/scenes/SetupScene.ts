@@ -40,7 +40,7 @@ export class SetupScene extends Scene {
       wordWrap: { width: Math.min(isPortrait ? 340 : 680, this.scale.width - 32) },
     }).setOrigin(0.5, 0);
 
-    this.hintText = this.add.text(this.scale.width / 2, this.scale.height - (isPortrait ? 48 : 96), '', {
+    this.hintText = this.add.text(this.scale.width / 2, this.scale.height - (isPortrait ? 36 : 96), '', {
       color: '#93c5fd',
       fontFamily: 'monospace',
       fontSize: hintSize,
@@ -49,8 +49,8 @@ export class SetupScene extends Scene {
 
     if (isPortrait) {
       // 竖屏：按钮垂直排列
-      const btnY = this.scale.height - 200;
-      const btnGap = 60;
+      const btnY = this.scale.height - 300;
+      const btnGap = 62;
       this.createButton(this.scale.width / 2, btnY, '切任务', () => {
         AudioManager.getInstance().playSfx('sfx-click');
         this.missionIndex = (this.missionIndex + 1) % this.missionIds.length;

@@ -65,15 +65,7 @@ export class Unit {
     const worldPos = this.getWorldPosition();
     this.sprite = scene.add.image(worldPos.x, worldPos.y, `unit-${chassis}`);
     this.sprite.setDisplaySize(48, 48);
-    
-    // Tint by squad
-    if (squad === 0) {
-      this.sprite.setTint(0x6699ff);
-    } else if (squad === 1) {
-      this.sprite.setTint(0xff6666);
-    } else {
-      this.sprite.setTint(0xffc857);
-    }
+    this.sprite.setDepth?.(10);
   }
 
   private getBaseStats(chassis: ChassisType): UnitStats {
@@ -290,6 +282,11 @@ export class Unit {
   getComboModules(): ModuleDefinition[] { return [...this.equippedModules.combo]; }
   getToolModules(): ModuleDefinition[] { return [...this.equippedModules.tool]; }
   getSprite(): GameObjects.Image { return this.sprite; }
+
+  syncSpriteToWorldPosition(): void {
+    const pos = this.getWorldPosition();
+    this.sprite.setPosition(pos.x, pos.y);
+  }
   
   setFacing(direction: FacingDirection): void {
     this.facing = direction;
