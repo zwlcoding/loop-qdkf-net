@@ -12,11 +12,11 @@ export const BATTLE_UNIT_ASSETS: BattleImageAsset[] = [
 ];
 
 export const BATTLE_TERRAIN_ASSETS: BattleImageAsset[] = [
-  { key: 'tile-plain-sprite', path: 'tiles/tile-grass.png' },
-  { key: 'tile-mountain-sprite', path: 'tiles/tile-dirt.png' },
-  { key: 'tile-urban-sprite', path: 'tiles/tile-stone.png' },
-  { key: 'tile-forest-sprite', path: 'tiles/tile-grass.png' },
-  { key: 'tile-water-sprite', path: 'tiles/tile-water.png' },
+  { key: 'tile-plain-sprite', path: 'tiles/tile-plain-sprite.png' },
+  { key: 'tile-mountain-sprite', path: 'tiles/tile-mountain-sprite.png' },
+  { key: 'tile-urban-sprite', path: 'tiles/tile-urban-sprite.png' },
+  { key: 'tile-forest-sprite', path: 'tiles/tile-forest-sprite.png' },
+  { key: 'tile-water-sprite', path: 'tiles/tile-water-sprite.png' },
 ];
 
 export const BATTLE_TERRAIN_TEXTURE_BY_TERRAIN = {

@@ -85,8 +85,8 @@ describe('BattleSceneMobileUi', () => {
     expect(layout.battleViewport.y + layout.battleViewport.height).toBeLessThan(layout.log.position.y);
   });
 
-  it('keeps portrait battle tiles readable instead of shrinking to full-map fit only', () => {
-    const layout = getBattleSceneLayout({ width: 720, height: 1280, isPortrait: true, debugVisible: false });
+  it('keeps portrait battle tiles readable for a camera-framed local board view', () => {
+    const layout = getBattleSceneLayout({ width: 390, height: 844, isPortrait: true, debugVisible: false });
     const tileSize = calculateBattleMapTileSize({
       viewportWidth: layout.battleViewport.width,
       viewportHeight: layout.battleViewport.height,
@@ -95,7 +95,8 @@ describe('BattleSceneMobileUi', () => {
       isPortrait: true,
     });
 
-    expect(tileSize).toBeGreaterThanOrEqual(56);
+    expect(tileSize).toBeGreaterThanOrEqual(60);
+    expect(tileSize).toBeGreaterThan((layout.battleViewport.width / (16 + 12)) * 2);
   });
 
   it('uses viewport fit sizing for landscape battle maps', () => {

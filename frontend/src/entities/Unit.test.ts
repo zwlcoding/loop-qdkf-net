@@ -9,6 +9,7 @@ const makeUnit = (chassis: Parameters<typeof Unit.prototype.constructor>[3] = 'v
 
 const makeScene = (): Scene => {
   const image = {
+    setOrigin: vi.fn(),
     setDisplaySize: vi.fn(),
     setTint: vi.fn(),
     setPosition: vi.fn(),
@@ -27,6 +28,26 @@ const makeScene = (): Scene => {
 };
 
 describe('Unit status behavior', () => {
+  it('anchors its sprite near the feet so tile centers match board occupancy', () => {
+    const scene = makeScene();
+
+    new Unit(scene, 1, 1, 'vanguard', 0);
+
+    const image = (scene.add.image as any).mock.results[0].value;
+    expect(image.setOrigin).toHaveBeenCalledWith(0.5, 0.82);
+  });
+
+  it('uses the registered grid map for elevated world positions', () => {
+    const scene = makeScene();
+    const getTileWorldPosition = vi.fn(() => ({ x: 128, y: 96 }));
+    (scene.registry.get as any).mockReturnValue({ getTileWorldPosition });
+
+    const unit = new Unit(scene, 3, 2, 'vanguard', 0);
+
+    expect(unit.getWorldPosition()).toEqual({ x: 128, y: 96 });
+    expect(getTileWorldPosition).toHaveBeenCalledWith(3, 2);
+  });
+
   it('reduces initiative-relevant speed while slowed', () => {
     const unit = new Unit(makeScene(), 1, 1, 'skirmisher', 0);
 

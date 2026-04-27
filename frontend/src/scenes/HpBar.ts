@@ -64,6 +64,10 @@ export class HpBar {
     this.container.setAlpha(alpha);
   }
 
+  setDepth(depth: number): void {
+    this.container.setDepth?.(depth);
+  }
+
   destroy(): void {
     this.background.destroy();
     this.fill.destroy();

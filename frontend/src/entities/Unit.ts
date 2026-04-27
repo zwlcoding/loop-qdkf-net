@@ -64,6 +64,7 @@ export class Unit {
     
     const worldPos = this.getWorldPosition();
     this.sprite = scene.add.image(worldPos.x, worldPos.y, `unit-${chassis}`);
+    this.sprite.setOrigin?.(0.5, 0.82);
     this.sprite.setDisplaySize(48, 48);
     this.sprite.setDepth?.(10);
   }
