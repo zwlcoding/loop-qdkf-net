@@ -27,6 +27,7 @@ import { BotTurnPlanner, resolveActorProfile, type BotBattleState, type BotMissi
 import { getBattleSceneAiConfig, isBattleSceneAutoControlledSquad } from './BattleSceneAiConfig';
 import {
   getBattleSceneActionBarState,
+  calculateBattleMapTileSize,
   getBattleSceneGuidanceText,
   getBattleSceneLayout,
   type BattleSceneActionBarAction,
@@ -74,6 +75,7 @@ export class BattleScene extends Scene {
   private readonly originalTints = new Map<string, number>();
   private readonly unitPreviousHp = new Map<string, number>();
   private readonly dyingUnits = new Set<string>();
+  private battleTileSize = 48;
 
   constructor() {
     super({ key: 'BattleScene' });
@@ -81,9 +83,15 @@ export class BattleScene extends Scene {
 
   create(): void {
     this.activeSetup = this.resolveBattleSetup();
+    const layout = this.getLayout();
     const tileSize = this.calculateTileSize();
-    this.gridMap = new GridMap(this, 16, 12, tileSize);
+    this.battleTileSize = tileSize;
+    this.gridMap = new GridMap(this, 16, 12, tileSize, layout.battleViewport);
     this.registry.set('gridMap', this.gridMap);
+    this.scale.on('resize', this.handleSceneResize, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off('resize', this.handleSceneResize, this);
+    });
 
     this.turnManager = new TurnManager();
     this.combatResolver = new CombatResolver(this.gridMap);
@@ -112,6 +120,7 @@ export class BattleScene extends Scene {
     this.createHud();
     this.createPortraitActionBar();
     this.createUnitsFromSetup();
+    this.syncUnitSpritesToMap();
     this.updateMissionMarkers();
     this.squadComboResource = new SquadComboResource(3, [...new Set(this.units.map((unit) => unit.getSquad()))]);
 
@@ -151,19 +160,14 @@ export class BattleScene extends Scene {
   }
 
   private calculateTileSize(): number {
-    const gridW = 16;
-    const gridH = 12;
-    // Isometric projection makes the map wider:
-    //   pixel width  = (gridW + gridH) * tileSize / 2  →  14 * tileSize
-    //   pixel height = (gridW + gridH) * tileSize / 4  →   7 * tileSize
-    // Apply isometric-aware fitting for BOTH portrait and landscape
-    const isoWidthTiles = gridW + gridH;   // 28 — the map is 28 half-tiles wide
-    const isoHeightTiles = (gridW + gridH) / 2; // 14 — the map is 14 quarter-tiles tall
-    const tileSize = Math.min(
-      this.scale.width / isoWidthTiles,
-      this.scale.height / isoHeightTiles,
-    ) * 2 * 0.85;
-    return Math.max(tileSize, 24); // floor at 24px so tiles stay usable
+    const layout = this.getLayout();
+    return calculateBattleMapTileSize({
+      viewportWidth: layout.battleViewport.width,
+      viewportHeight: layout.battleViewport.height,
+      gridWidth: 16,
+      gridHeight: 12,
+      isPortrait: this.isPortrait(),
+    });
   }
 
   private getLayout() {
@@ -313,7 +317,7 @@ export class BattleScene extends Scene {
     const squad = unit.getSquad();
     const shadowColor = squad === 0 ? 0x112244 : squad === 1 ? 0x441111 : 0x443311;
     const shadow = this.add.ellipse(pos.x, pos.y + 20, 40, 14, shadowColor, 0.3)
-      .setDepth(5);
+      .setDepth(4);
     this.unitBadges.set(unit.getId(), shadow);
   }
 
@@ -401,6 +405,17 @@ export class BattleScene extends Scene {
     this.syncHpBars();
   }
 
+  private syncUnitSpritesToMap(): void {
+    const unitSize = this.isPortrait()
+      ? Math.min(Math.max(this.battleTileSize * 0.92, 48), 58)
+      : 48;
+    this.units.forEach((unit) => {
+      if (this.dyingUnits.has(unit.getId())) return;
+      unit.syncSpriteToWorldPosition();
+      unit.getSprite().setDisplaySize(unitSize, unitSize);
+    });
+  }
+
   private syncHpBars(): void {
     this.units.forEach((unit) => {
       if (this.dyingUnits.has(unit.getId())) return;
@@ -461,9 +476,9 @@ export class BattleScene extends Scene {
 
   private getSquadTint(squad: number): number {
     switch (squad) {
-      case 0: return 0x6699ff;
-      case 1: return 0xff6666;
-      case 2: return 0xffc857;
+      case 0: return 0xffffff;
+      case 1: return 0xffffff;
+      case 2: return 0xffffff;
       default: return 0xffffff;
     }
   }
@@ -734,6 +749,30 @@ export class BattleScene extends Scene {
         .setPosition(x + buttonWidth / 2, y + layout.actionBar.buttonHeight / 2)
         .setVisible(visible);
     });
+  }
+
+  private handleSceneResize(): void {
+    this.reflowBattleMap();
+    this.updateResponsiveLayout();
+    this.refreshPortraitActionBar();
+  }
+
+  private reflowBattleMap(): void {
+    if (!this.gridMap) {
+      return;
+    }
+
+    const layout = this.getLayout();
+    const tileSize = this.calculateTileSize();
+    this.battleTileSize = tileSize;
+    this.gridMap.setLayout(tileSize, layout.battleViewport);
+    this.syncUnitSpritesToMap();
+    this.syncUnitBadges();
+    this.refreshActionOverlay();
+    if (this.pathPreview.length > 0) {
+      this.renderPathPreview();
+    }
+    this.updateMissionMarkers();
   }
 
   private refreshPortraitActionBar(): void {

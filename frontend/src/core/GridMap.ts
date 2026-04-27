@@ -1,4 +1,5 @@
 import { Scene, GameObjects } from 'phaser';
+import { BATTLE_TERRAIN_TEXTURE_BY_TERRAIN } from './BattleVisualAssets';
 import { getTerrainType } from '../data/TerrainTypes';
 
 export interface TileData {
@@ -29,6 +30,13 @@ export interface HighlightTile {
   alpha?: number;
 }
 
+export interface GridMapViewport {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export class GridMap {
   private scene: Scene;
   private tiles: TileData[][];
@@ -44,12 +52,14 @@ export class GridMap {
   private markerTexts: GameObjects.Text[] = [];
   private tileSprites: (GameObjects.Image | null)[][] = [];
   private tileMaskGraphics: GameObjects.Graphics[][] = [];
+  private viewport: GridMapViewport;
 
-  constructor(scene: Scene, width: number, height: number, tileSize: number = 64) {
+  constructor(scene: Scene, width: number, height: number, tileSize: number = 64, viewport?: GridMapViewport) {
     this.scene = scene;
     this.width = width;
     this.height = height;
     this.tileSize = tileSize;
+    this.viewport = viewport ?? { x: 0, y: 0, width: scene.scale.width, height: scene.scale.height };
     this.tiles = [];
     this.tileGraphics = scene.add.graphics();
     this.tileGraphics.setDepth(1);
@@ -123,17 +133,7 @@ export class GridMap {
    * Map terrain type to sprite key for tile sprites loaded in BootScene
    */
   private getTerrainSpriteKey(terrain: TileData['terrain']): string {
-    const spriteMap: Record<TileData['terrain'], string> = {
-      plain: 'tile-plain-sprite',
-      mountain: 'tile-mountain-sprite',
-      urban: 'tile-urban-sprite',
-      forest: 'tile-forest-sprite',
-      water: 'tile-water-sprite',
-      grass: 'tile-plain-sprite',
-      dirt: 'tile-mountain-sprite',
-      stone: 'tile-urban-sprite',
-    };
-    return spriteMap[terrain];
+    return BATTLE_TERRAIN_TEXTURE_BY_TERRAIN[terrain];
   }
 
   /**
@@ -154,20 +154,28 @@ export class GridMap {
       const colorHex = terrainInfo?.color ?? this.getTerrainFallbackColor(terrain);
       const color = typeof colorHex === 'string' ? parseInt(colorHex.replace('#', '0x'), 16) : colorHex;
       const g = this.scene.add.graphics();
-      // Draw a subtle gradient-like pattern instead of a flat color
-      // Use multiple horizontal bands with slightly varying alpha to create depth
+      const halfW = 32;
+      const halfH = 16;
+      const cx = 32;
+      const cy = 32;
       for (let i = 0; i < 8; i++) {
         const bandAlpha = 0.5 + (i / 8) * 0.5;
         g.fillStyle(color, bandAlpha);
-        g.fillRect(0, i * 8, 64, 8);
+        const inset = i * 3;
+        g.fillTriangle(cx, cy - halfH + inset / 2, cx + halfW - inset, cy, cx, cy + halfH - inset / 2);
+        g.fillTriangle(cx, cy - halfH + inset / 2, cx - halfW + inset, cy, cx, cy + halfH - inset / 2);
       }
-      // Add a subtle diamond-shaped highlight in the center
       g.fillStyle(0xffffff, 0.08);
       g.fillTriangle(32, 8, 56, 32, 32, 56);
       g.fillTriangle(32, 8, 8, 32, 32, 56);
-      // Add a subtle border so the tile is distinguishable
       g.lineStyle(1, 0xffffff, 0.15);
-      g.strokeRect(1, 1, 62, 62);
+      g.beginPath();
+      g.moveTo(cx, cy - halfH);
+      g.lineTo(cx + halfW, cy);
+      g.lineTo(cx, cy + halfH);
+      g.lineTo(cx - halfW, cy);
+      g.closePath();
+      g.strokePath();
       g.generateTexture(fallbackKey, 64, 64);
       g.destroy();
     }
@@ -187,8 +195,8 @@ export class GridMap {
     // Center the map on screen
     const mapWidth = (this.width + this.height) * (this.tileSize / 2);
     const mapHeight = (this.width + this.height) * (this.tileSize / 4);
-    const offsetX = (this.scene.scale.width - mapWidth) / 2 + this.tileSize / 2;
-    const offsetY = (this.scene.scale.height - mapHeight) / 2;
+    const offsetX = this.viewport.x + (this.viewport.width - mapWidth) / 2 + this.tileSize / 2;
+    const offsetY = this.viewport.y + (this.viewport.height - mapHeight) / 2;
     return {
       px: isoX + offsetX,
       py: isoY + offsetY - tileHeight * 16,
@@ -201,8 +209,8 @@ export class GridMap {
   isoToTile(px: number, py: number): { x: number; y: number } | null {
     const mapWidth = (this.width + this.height) * (this.tileSize / 2);
     const mapHeight = (this.width + this.height) * (this.tileSize / 4);
-    const offsetX = (this.scene.scale.width - mapWidth) / 2 + this.tileSize / 2;
-    const offsetY = (this.scene.scale.height - mapHeight) / 2;
+    const offsetX = this.viewport.x + (this.viewport.width - mapWidth) / 2 + this.tileSize / 2;
+    const offsetY = this.viewport.y + (this.viewport.height - mapHeight) / 2;
     const rx = px - offsetX;
     const ry = py - offsetY;
     const tileX = (rx / (this.tileSize / 2) + ry / (this.tileSize / 4)) / 2;
@@ -330,6 +338,12 @@ export class GridMap {
         this.tileGraphics.strokePath();
       }
     }
+  }
+
+  setLayout(tileSize: number, viewport: GridMapViewport): void {
+    this.tileSize = tileSize;
+    this.viewport = viewport;
+    this.renderMap();
   }
 
   private getTerrainFallbackColor(terrain: string): string {

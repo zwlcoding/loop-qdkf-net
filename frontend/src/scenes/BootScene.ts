@@ -2,6 +2,7 @@ import { Scene, GameObjects } from 'phaser';
 import { contentLoader } from '../data/ContentLoader';
 import { AssetIntake } from '../core/AssetIntake';
 import { resolvePublicAssetPath } from '../core/AssetPath';
+import { BATTLE_TERRAIN_ASSETS, BATTLE_UNIT_ASSETS } from '../core/BattleVisualAssets';
 import { ProgressManager } from '../core/ProgressManager';
 import { AudioManager } from '../core/AudioManager';
 import { COLORS, FONTS, createButton } from '../ui/Theme';
@@ -43,19 +44,13 @@ export class BootScene extends Scene {
     this.load.json('mission-templates', resolvePublicAssetPath('data/mission-templates.json'));
     this.load.json('map-events', resolvePublicAssetPath('data/map-events.json'));
 
-    // Character sprites
-    this.load.image('unit-vanguard', resolvePublicAssetPath('units/vanguard-sprite.png'));
-    this.load.image('unit-skirmisher', resolvePublicAssetPath('units/skirmisher-sprite.png'));
-    this.load.image('unit-controller', resolvePublicAssetPath('units/controller-sprite.png'));
-    this.load.image('unit-support', resolvePublicAssetPath('units/support-sprite.png'));
-    this.load.image('unit-caster', resolvePublicAssetPath('units/caster-sprite.png'));
+    BATTLE_UNIT_ASSETS.forEach((asset) => {
+      this.load.image(asset.key, resolvePublicAssetPath(asset.path));
+    });
 
-    // Terrain tile sprites
-    this.load.image('tile-plain-sprite', resolvePublicAssetPath('tiles/tile-plain-sprite.png'));
-    this.load.image('tile-mountain-sprite', resolvePublicAssetPath('tiles/tile-mountain-sprite.png'));
-    this.load.image('tile-urban-sprite', resolvePublicAssetPath('tiles/tile-urban-sprite.png'));
-    this.load.image('tile-forest-sprite', resolvePublicAssetPath('tiles/tile-forest-sprite.png'));
-    this.load.image('tile-water-sprite', resolvePublicAssetPath('tiles/tile-water-sprite.png'));
+    BATTLE_TERRAIN_ASSETS.forEach((asset) => {
+      this.load.image(asset.key, resolvePublicAssetPath(asset.path));
+    });
 
     // Wire up progress events
     this.load.on('progress', (value: number) => {
