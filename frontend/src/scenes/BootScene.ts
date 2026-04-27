@@ -51,13 +51,11 @@ export class BootScene extends Scene {
     this.load.image('unit-caster', resolvePublicAssetPath('units/caster-sprite.png'));
 
     // Terrain tile sprites
-    this.load.imageLoadType = 'HTMLImageElement';
     this.load.image('tile-plain-sprite', resolvePublicAssetPath('tiles/tile-plain-sprite.png'));
     this.load.image('tile-mountain-sprite', resolvePublicAssetPath('tiles/tile-mountain-sprite.png'));
     this.load.image('tile-urban-sprite', resolvePublicAssetPath('tiles/tile-urban-sprite.png'));
     this.load.image('tile-forest-sprite', resolvePublicAssetPath('tiles/tile-forest-sprite.png'));
     this.load.image('tile-water-sprite', resolvePublicAssetPath('tiles/tile-water-sprite.png'));
-    this.load.imageLoadType = 'XHR';
 
     // Wire up progress events
     this.load.on('progress', (value: number) => {
