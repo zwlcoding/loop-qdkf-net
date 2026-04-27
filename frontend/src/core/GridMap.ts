@@ -134,6 +134,44 @@ export class GridMap {
     return spriteMap[terrain];
   }
 
+  /**
+   * Ensure a terrain sprite texture exists. Returns the texture key to use.
+   * If the expected sprite texture didn't load, generates a fallback
+   * colored rectangle so the tile is never invisible.
+   */
+  private ensureTerrainSprite(terrain: TileData['terrain']): string {
+    const spriteKey = this.getTerrainSpriteKey(terrain);
+    if (this.scene.textures && this.scene.textures.exists(spriteKey)) {
+      return spriteKey;
+    }
+
+    // Generate a fallback texture based on terrain color
+    const fallbackKey = `fallback-sprite-${terrain}`;
+    if (this.scene.textures && !this.scene.textures.exists(fallbackKey)) {
+      const terrainInfo = getTerrainType(terrain);
+      const colorHex = terrainInfo?.color ?? this.getTerrainFallbackColor(terrain);
+      const color = typeof colorHex === 'string' ? parseInt(colorHex.replace('#', '0x'), 16) : colorHex;
+      const g = this.scene.add.graphics();
+      // Draw a subtle gradient-like pattern instead of a flat color
+      // Use multiple horizontal bands with slightly varying alpha to create depth
+      for (let i = 0; i < 8; i++) {
+        const bandAlpha = 0.5 + (i / 8) * 0.5;
+        g.fillStyle(color, bandAlpha);
+        g.fillRect(0, i * 8, 64, 8);
+      }
+      // Add a subtle diamond-shaped highlight in the center
+      g.fillStyle(0xffffff, 0.08);
+      g.fillTriangle(32, 8, 56, 32, 32, 56);
+      g.fillTriangle(32, 8, 8, 32, 32, 56);
+      // Add a subtle border so the tile is distinguishable
+      g.lineStyle(1, 0xffffff, 0.15);
+      g.strokeRect(1, 1, 62, 62);
+      g.generateTexture(fallbackKey, 64, 64);
+      g.destroy();
+    }
+    return fallbackKey;
+  }
+
   // ─── Isometric coordinate conversion ─────────────────────────────────
 
   /**
@@ -227,47 +265,29 @@ export class GridMap {
         }
 
         // --- Draw tile sprite ---
-        const spriteKey = this.getTerrainSpriteKey(tile.terrain);
-        if (this.scene.textures && this.scene.textures.exists(spriteKey)) {
-          if (this.tileSprites[x] && this.tileSprites[x][y]) {
-            this.tileSprites[x][y]!.destroy();
-          }
-          const img = this.scene.add.image(cx, cy, spriteKey);
-          // Scale the sprite to fit the diamond footprint
-          const scaleX = this.tileSize / img.width;
-          const scaleY = (this.tileSize / 2) / img.height;
-          img.setScale(Math.min(scaleX, scaleY));
-          img.setDepth(1);
-          img.setAlpha(tile.walkable ? 1 : 0.65);
-          this.tileSprites[x][y] = img;
+        const spriteKey = this.ensureTerrainSprite(tile.terrain);
+        if (this.tileSprites[x] && this.tileSprites[x][y]) {
+          this.tileSprites[x][y]!.destroy();
         }
+        const img = this.scene.add.image(cx, cy, spriteKey);
+        // Scale the sprite to fit the diamond footprint
+        const scaleX = this.tileSize / img.width;
+        const scaleY = (this.tileSize / 2) / img.height;
+        img.setScale(Math.max(scaleX, scaleY));
+        // Depth 2 ensures sprites render above tileGraphics (depth 1)
+        img.setDepth(2);
+        img.setAlpha(tile.walkable ? 1 : 0.65);
 
-        // --- Draw diamond top face (semi-transparent fill for blending) ---
-        const terrainInfo = getTerrainType(tile.terrain);
-        const colorHex = terrainInfo?.color ?? this.getTerrainFallbackColor(tile.terrain);
-        const color = typeof colorHex === 'string' ? parseInt(colorHex.replace('#', '0x'), 16) : colorHex;
-
-        this.tileGraphics.fillStyle(color, 0.15);
-        this.tileGraphics.fillTriangle(cx, topY, rightX, rightY, cx, bottomY);
-        this.tileGraphics.fillTriangle(cx, topY, leftX, leftY, cx, bottomY);
-
-        // --- Non-walkable overlay ---
+        // Apply visual overlays directly via sprite tint instead of drawing
+        // colored diamonds on top (which would cover the sprite image)
         if (!tile.walkable) {
-          this.tileGraphics.fillStyle(0x000000, 0.30);
-          this.tileGraphics.fillTriangle(cx, topY, rightX, rightY, cx, bottomY);
-          this.tileGraphics.fillTriangle(cx, topY, leftX, leftY, cx, bottomY);
-        }
-
-        // --- Hazard / objective tint ---
-        if (tile.hazardType) {
-          this.tileGraphics.fillStyle(0xffb703, 0.30);
-          this.tileGraphics.fillTriangle(cx, topY, rightX, rightY, cx, bottomY);
-          this.tileGraphics.fillTriangle(cx, topY, leftX, leftY, cx, bottomY);
+          img.setTint(0x333333);
+        } else if (tile.hazardType) {
+          img.setTint(0xffcc66);
         } else if (tile.objectiveId) {
-          this.tileGraphics.fillStyle(0xd8b4fe, 0.30);
-          this.tileGraphics.fillTriangle(cx, topY, rightX, rightY, cx, bottomY);
-          this.tileGraphics.fillTriangle(cx, topY, leftX, leftY, cx, bottomY);
+          img.setTint(0xe0c0ff);
         }
+        this.tileSprites[x][y] = img;
 
         // --- Diamond outline ---
         this.tileGraphics.lineStyle(1, 0x000000, 0.25);

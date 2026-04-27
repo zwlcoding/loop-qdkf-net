@@ -151,14 +151,19 @@ export class BattleScene extends Scene {
   }
 
   private calculateTileSize(): number {
-    const mapWidth = 16;
-    const mapHeight = 12;
-    const defaultTileSize = 64;
-    if (!this.isPortrait()) {
-      return defaultTileSize;
-    }
-    const tileSize = Math.min(this.scale.width / mapWidth, this.scale.height / mapHeight) * 0.9;
-    return tileSize;
+    const gridW = 16;
+    const gridH = 12;
+    // Isometric projection makes the map wider:
+    //   pixel width  = (gridW + gridH) * tileSize / 2  →  14 * tileSize
+    //   pixel height = (gridW + gridH) * tileSize / 4  →   7 * tileSize
+    // Apply isometric-aware fitting for BOTH portrait and landscape
+    const isoWidthTiles = gridW + gridH;   // 28 — the map is 28 half-tiles wide
+    const isoHeightTiles = (gridW + gridH) / 2; // 14 — the map is 14 quarter-tiles tall
+    const tileSize = Math.min(
+      this.scale.width / isoWidthTiles,
+      this.scale.height / isoHeightTiles,
+    ) * 2 * 0.85;
+    return Math.max(tileSize, 24); // floor at 24px so tiles stay usable
   }
 
   private getLayout() {
