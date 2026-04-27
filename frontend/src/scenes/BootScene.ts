@@ -44,11 +44,11 @@ export class BootScene extends Scene {
     this.load.json('map-events', resolvePublicAssetPath('data/map-events.json'));
 
     // Character sprites
-    this.load.image('sprite-vanguard', resolvePublicAssetPath('units/vanguard-sprite.png'));
-    this.load.image('sprite-skirmisher', resolvePublicAssetPath('units/skirmisher-sprite.png'));
-    this.load.image('sprite-controller', resolvePublicAssetPath('units/controller-sprite.png'));
-    this.load.image('sprite-support', resolvePublicAssetPath('units/support-sprite.png'));
-    this.load.image('sprite-caster', resolvePublicAssetPath('units/caster-sprite.png'));
+    this.load.image('unit-vanguard', resolvePublicAssetPath('units/vanguard-sprite.png'));
+    this.load.image('unit-skirmisher', resolvePublicAssetPath('units/skirmisher-sprite.png'));
+    this.load.image('unit-controller', resolvePublicAssetPath('units/controller-sprite.png'));
+    this.load.image('unit-support', resolvePublicAssetPath('units/support-sprite.png'));
+    this.load.image('unit-caster', resolvePublicAssetPath('units/caster-sprite.png'));
 
     // Terrain tile sprites
     this.load.image('tile-plain-sprite', resolvePublicAssetPath('tiles/tile-plain-sprite.png'));
@@ -187,13 +187,22 @@ export class BootScene extends Scene {
 
     const titleY = isPortrait ? 120 : 160;
 
-    // Glow layer (duplicate text behind)
-    this.add.text(w / 2, titleY, 'LOOP QDKF', {
+    // Glow layer (duplicate text behind) — breathing animation
+    const glowText = this.add.text(w / 2, titleY, 'LOOP QDKF', {
       color: '#3b82f6',
       fontFamily: 'monospace',
       fontSize: titleSize,
       align: 'center',
     }).setOrigin(0.5).setAlpha(0.35);
+
+    this.tweens.add({
+      targets: glowText,
+      alpha: { from: 0.2, to: 0.5 },
+      duration: 2000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
 
     // Main title
     this.add.text(w / 2, titleY, 'LOOP QDKF', {

@@ -26,7 +26,7 @@ export class AssetIntake {
     this.scene = scene;
     this.manifest = {
       tiles: ['tile-grass', 'tile-dirt', 'tile-stone', 'tile-water'],
-      units: ['unit-vanguard', 'unit-skirmisher', 'unit-caster', 'unit-support', 'unit-controller'],
+      units: [],
       markers: ['marker-extraction', 'marker-objective', 'marker-relic', 'marker-boss'],
       ui: ['ui-panel', 'ui-button', 'ui-cursor'],
       effects: ['effect-highlight', 'effect-path', 'effect-attack', 'effect-combo'],

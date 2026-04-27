@@ -58,7 +58,7 @@ export class BattleScene extends Scene {
   private showDebugOverlay = false;
   private targetableTiles: { x: number; y: number; color?: number; alpha?: number }[] = [];
   private readonly unitDisplayNames = new Map<string, string>();
-  private readonly unitBadges = new Map<string, Phaser.GameObjects.Text>();
+  private readonly unitBadges = new Map<string, Phaser.GameObjects.Ellipse>();
   private readonly hpBars = new Map<string, HpBar>();
   private readonly squadControl = new Map<number, 'human' | 'ai'>();
   private lastLoggedPressureStage = -1;
@@ -70,6 +70,10 @@ export class BattleScene extends Scene {
   private chassisManager = new ChassisModuleManager();
   private riftDamageDealt = 0;
   private riftDamageTaken = 0;
+  private readonly activeTweens = new Map<string, Phaser.Tweens.Tween>();
+  private readonly originalTints = new Map<string, number>();
+  private readonly unitPreviousHp = new Map<string, number>();
+  private readonly dyingUnits = new Set<string>();
 
   constructor() {
     super({ key: 'BattleScene' });
@@ -287,7 +291,8 @@ export class BattleScene extends Scene {
     seededUnits.forEach(({ unit, label }) => {
       this.units.push(unit);
       this.unitDisplayNames.set(unit.getId(), label);
-      this.createUnitBadge(unit, label);
+      this.originalTints.set(unit.getId(), this.getSquadTint(unit.getSquad()));
+      this.createUnitBadge(unit);
       this.createUnitHpBar(unit);
       this.applyFallbackLoadout(unit);
       const loadout = this.registry.get('loadout');
@@ -298,28 +303,79 @@ export class BattleScene extends Scene {
     });
   }
 
-  private createUnitBadge(unit: Unit, label: string): void {
+  private createUnitBadge(unit: Unit): void {
     const pos = unit.getWorldPosition();
-    const badgeColor = unit.getSquad() === 0 ? '#1d4ed8cc' : unit.getSquad() === 1 ? '#b91c1ccc' : '#b45309cc';
-    const badge = this.add.text(pos.x, pos.y - 34, label, {
-      color: '#ffffff',
-      fontFamily: 'monospace',
-      fontSize: '12px',
-      backgroundColor: badgeColor,
-      padding: { x: 4, y: 2 },
-      align: 'center',
-    }).setOrigin(0.5).setDepth(12);
-
-    this.unitBadges.set(unit.getId(), badge);
+    const squad = unit.getSquad();
+    const shadowColor = squad === 0 ? 0x112244 : squad === 1 ? 0x441111 : 0x443311;
+    const shadow = this.add.ellipse(pos.x, pos.y + 20, 40, 14, shadowColor, 0.3)
+      .setDepth(5);
+    this.unitBadges.set(unit.getId(), shadow);
   }
 
   private createUnitHpBar(unit: Unit): void {
     const hpBar = new HpBar(this, unit);
     this.hpBars.set(unit.getId(), hpBar);
-    unit.setOnHpChanged((hp, maxHp) => hpBar.update(hp, maxHp));
+    this.unitPreviousHp.set(unit.getId(), unit.getMaxHp());
+    const originalTint = this.getSquadTint(unit.getSquad());
+
+    unit.setOnHpChanged((hp, maxHp) => {
+      const prevHp = this.unitPreviousHp.get(unit.getId()) ?? maxHp;
+      hpBar.update(hp, maxHp);
+      this.unitPreviousHp.set(unit.getId(), hp);
+
+      // Hit flash: white flash when HP decreases, then restore original tint
+      if (hp < prevHp && unit.isAlive()) {
+        const sprite = unit.getSprite();
+        sprite.setTint(0xffffff);
+        this.time.delayedCall(100, () => {
+          if (unit.isAlive()) {
+            sprite.setTint(originalTint);
+          }
+        });
+      }
+    });
+
     unit.setOnDeath(() => {
-      hpBar.destroy();
-      this.hpBars.delete(unit.getId());
+      // Stop any active floating tween
+      this.stopActiveTweens(unit.getId());
+      this.dyingUnits.add(unit.getId());
+
+      const sprite = unit.getSprite();
+      const badge = this.unitBadges.get(unit.getId());
+
+      // Animate sprite: fade out + scale down over 500ms
+      this.tweens.add({
+        targets: sprite,
+        alpha: 0,
+        scaleX: 0.5,
+        scaleY: 0.5,
+        duration: 500,
+        ease: 'Power2',
+      });
+
+      // Animate shadow badge: fade out simultaneously
+      if (badge) {
+        this.tweens.add({
+          targets: badge,
+          alpha: 0,
+          duration: 500,
+          ease: 'Power2',
+          onComplete: () => {
+            badge.destroy();
+            this.unitBadges.delete(unit.getId());
+          },
+        });
+      }
+
+      // Delay HP bar destruction to match animation
+      this.time.delayedCall(500, () => {
+        hpBar.destroy();
+        this.hpBars.delete(unit.getId());
+        this.dyingUnits.delete(unit.getId());
+        this.unitPreviousHp.delete(unit.getId());
+        this.originalTints.delete(unit.getId());
+      });
+
       AudioManager.getInstance().playSfx('sfx-death');
       const pos = unit.getWorldPosition();
       VisualEffects.spawnParticles(this, pos.x, pos.y, 'death');
@@ -328,32 +384,28 @@ export class BattleScene extends Scene {
 
   private syncUnitBadges(): void {
     this.units.forEach((unit) => {
+      if (this.dyingUnits.has(unit.getId())) return;
       const badge = this.unitBadges.get(unit.getId());
       if (!badge) {
         return;
       }
-
       const pos = unit.getWorldPosition();
-      const isActive = unit === this.turnManager.getActiveUnit();
-      const label = this.getUnitDisplayName(unit);
-      badge.setPosition(pos.x, pos.y - 34);
-      badge.setText(isActive ? `▶ ${label}` : label);
-      badge.setScale(isActive ? 1.05 : 1);
-      badge.setAlpha(unit.isAlive() ? 1 : 0.45);
+      badge.setPosition(pos.x, pos.y + 20);
+      badge.setAlpha(unit.isAlive() ? 0.3 : 0.1);
     });
-
     this.syncHpBars();
   }
 
   private syncHpBars(): void {
     this.units.forEach((unit) => {
+      if (this.dyingUnits.has(unit.getId())) return;
       const hpBar = this.hpBars.get(unit.getId());
       if (!hpBar) {
         return;
       }
 
       const pos = unit.getWorldPosition();
-      hpBar.setPosition(pos.x, pos.y - 32);
+      hpBar.setPosition(pos.x, pos.y - 42);
       hpBar.setAlpha(unit.isAlive() ? 1 : 0.45);
     });
   }
@@ -400,6 +452,44 @@ export class BattleScene extends Scene {
     }
 
     return (this.squadControl.get(unit.getSquad()) ?? (isBattleSceneAutoControlledSquad(unit.getSquad()) ? 'ai' : 'human')) === 'ai';
+  }
+
+  private getSquadTint(squad: number): number {
+    switch (squad) {
+      case 0: return 0x6699ff;
+      case 1: return 0xff6666;
+      case 2: return 0xffc857;
+      default: return 0xffffff;
+    }
+  }
+
+  private stopActiveTweens(unitId: string): void {
+    const tween = this.activeTweens.get(unitId);
+    if (tween) {
+      tween.stop();
+      this.activeTweens.delete(unitId);
+    }
+  }
+
+  private startFloatingAnimation(unit: Unit): void {
+    if (!unit.isAlive()) return;
+    const sprite = unit.getSprite();
+    const originalY = sprite.y;
+    const tween = this.tweens.add({
+      targets: sprite,
+      y: originalY - 4,
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+    this.activeTweens.set(unit.getId(), tween);
+  }
+
+  private stopFloatingAnimation(unit: Unit): void {
+    this.stopActiveTweens(unit.getId());
+    const pos = unit.getWorldPosition();
+    unit.getSprite().setY(pos.y);
   }
 
   private buildBotMissionSnapshot(): BotMissionSnapshot | null {
@@ -724,7 +814,16 @@ export class BattleScene extends Scene {
   private selectUnit(unit: Unit): void {
     this.clearReachableTiles();
     this.clearPathPreview();
+
+    // Stop floating animation on previously selected unit
+    if (this.selectedUnit && this.selectedUnit !== unit) {
+      this.stopFloatingAnimation(this.selectedUnit);
+    }
+
     this.selectedUnit = unit;
+
+    // Start floating animation on newly selected unit
+    this.startFloatingAnimation(unit);
 
     if (!unit.hasPrimaryActionRemaining()) {
       this.actionMode = 'move';
@@ -1126,7 +1225,6 @@ export class BattleScene extends Scene {
     if (result.appliedDamage) {
       targetUnit.applyResolvedDamage(result.appliedDamage);
       this.spawnDamageText(targetUnit, result.appliedDamage, 'damage');
-      VisualEffects.hitFlash(targetUnit.getSprite());
       if (result.appliedDamage > 20) {
         VisualEffects.screenShake(this);
       }
@@ -1195,6 +1293,7 @@ export class BattleScene extends Scene {
   }
 
   private removeUnitFromBattle(unit: Unit): void {
+    this.stopActiveTweens(unit.getId());
     this.turnManager.removeUnit(unit);
     this.units = this.units.filter((candidate) => candidate.getId() !== unit.getId());
     const badge = this.unitBadges.get(unit.getId());
@@ -1213,6 +1312,8 @@ export class BattleScene extends Scene {
   shutdown(): void {
     this.hpBars.forEach((hpBar) => hpBar.destroy());
     this.hpBars.clear();
+    this.activeTweens.forEach((tween) => tween.stop());
+    this.activeTweens.clear();
   }
 
   private handleExtract(): void {
@@ -1280,6 +1381,9 @@ export class BattleScene extends Scene {
     if (!activeUnit) {
       return;
     }
+
+    // Stop floating animation before ending turn
+    this.stopFloatingAnimation(activeUnit);
 
     const extracted = this.tryResolveExtraction(activeUnit);
     this.selectedUnit = null;

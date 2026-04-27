@@ -20,12 +20,18 @@ const makeMockScene = () =>
         lineTo: () => {},
         strokePath: () => {},
         fillTriangle: () => {},
+        closePath: () => {},
       }),
       image: () => ({
         setOrigin: () => {},
         setDisplaySize: () => {},
         setAlpha: () => {},
         setTint: () => {},
+        setScale: () => {},
+        setDepth: () => {},
+        destroy: () => {},
+        width: 64,
+        height: 64,
       }),
       text: () => ({
         setOrigin: () => ({ setDepth: () => ({}) }),

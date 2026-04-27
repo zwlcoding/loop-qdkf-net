@@ -196,3 +196,30 @@ export function createPanel(
 
   return rect;
 }
+
+export function fadeIn(
+  scene: Scene,
+  target: { setAlpha: (a: number) => void; alpha: number },
+  duration: number = 300
+): void {
+  target.setAlpha(0);
+  scene.tweens.add({
+    targets: target,
+    alpha: 1,
+    duration,
+    ease: 'Power2',
+  });
+}
+
+export function fadeOut(
+  scene: Scene,
+  target: { setAlpha: (a: number) => void; alpha: number },
+  duration: number = 300
+): void {
+  scene.tweens.add({
+    targets: target,
+    alpha: 0,
+    duration,
+    ease: 'Power2',
+  });
+}

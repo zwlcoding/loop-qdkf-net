@@ -42,6 +42,7 @@ export class GridMap {
   private markerGraphics: GameObjects.Graphics;
   private pressureGraphics: GameObjects.Graphics;
   private markerTexts: GameObjects.Text[] = [];
+  private tileSprites: (GameObjects.Image | null)[][] = [];
 
   constructor(scene: Scene, width: number, height: number, tileSize: number = 64) {
     this.scene = scene;
@@ -71,6 +72,7 @@ export class GridMap {
     for (let x = 0; x < this.width; x++) {
       this.tiles[x] = [];
       this.tileIconTexts[x] = [];
+      this.tileSprites[x] = [];
       for (let y = 0; y < this.height; y++) {
         const height = Math.floor(Math.random() * 3);
         const terrain = this.determineTerrain(x, y);
@@ -115,80 +117,186 @@ export class GridMap {
     return flags[terrain];
   }
 
-  private renderMap(): void {
-    const offsetX = (this.scene.scale.width - this.width * this.tileSize) / 2;
-    const offsetY = (this.scene.scale.height - this.height * this.tileSize) / 2;
+  /**
+   * Map terrain type to sprite key for tile sprites loaded in BootScene
+   */
+  private getTerrainSpriteKey(terrain: TileData['terrain']): string {
+    const spriteMap: Record<TileData['terrain'], string> = {
+      plain: 'tile-plain-sprite',
+      mountain: 'tile-mountain-sprite',
+      urban: 'tile-urban-sprite',
+      forest: 'tile-forest-sprite',
+      water: 'tile-water-sprite',
+      grass: 'tile-plain-sprite',
+      dirt: 'tile-mountain-sprite',
+      stone: 'tile-urban-sprite',
+    };
+    return spriteMap[terrain];
+  }
 
+  // ─── Isometric coordinate conversion ─────────────────────────────────
+
+  /**
+   * Grid tile center → pixel center (isometric)
+   */
+  tileToIso(x: number, y: number): { px: number; py: number } {
+    const tile = this.getTile(x, y);
+    const tileHeight = tile ? tile.height : 0;
+    const isoX = (x - y) * (this.tileSize / 2);
+    const isoY = (x + y) * (this.tileSize / 4);
+    // Center the map on screen
+    const mapWidth = (this.width + this.height) * (this.tileSize / 2);
+    const mapHeight = (this.width + this.height) * (this.tileSize / 4);
+    const offsetX = (this.scene.scale.width - mapWidth) / 2 + this.tileSize / 2;
+    const offsetY = (this.scene.scale.height - mapHeight) / 2;
+    return {
+      px: isoX + offsetX,
+      py: isoY + offsetY - tileHeight * 16,
+    };
+  }
+
+  /**
+   * Pixel position → grid tile (inverse isometric)
+   */
+  isoToTile(px: number, py: number): { x: number; y: number } | null {
+    const mapWidth = (this.width + this.height) * (this.tileSize / 2);
+    const mapHeight = (this.width + this.height) * (this.tileSize / 4);
+    const offsetX = (this.scene.scale.width - mapWidth) / 2 + this.tileSize / 2;
+    const offsetY = (this.scene.scale.height - mapHeight) / 2;
+    const rx = px - offsetX;
+    const ry = py - offsetY;
+    const tileX = (rx / (this.tileSize / 2) + ry / (this.tileSize / 4)) / 2;
+    const tileY = (ry / (this.tileSize / 4) - rx / (this.tileSize / 2)) / 2;
+    const tx = Math.floor(tileX);
+    const ty = Math.floor(tileY);
+    if (tx < 0 || tx >= this.width || ty < 0 || ty >= this.height) return null;
+    return { x: tx, y: ty };
+  }
+
+  // ─── Rendering ───────────────────────────────────────────────────────
+
+  private renderMap(): void {
     this.tileGraphics.clear();
 
     for (let x = 0; x < this.width; x++) {
       for (let y = 0; y < this.height; y++) {
         const tile = this.tiles[x][y];
-        const px = offsetX + x * this.tileSize;
-        const py = offsetY + y * this.tileSize - tile.height * 16;
+        const { px: cx, py: cy } = this.tileToIso(x, y);
+        const halfW = this.tileSize / 2;
+        const halfH = this.tileSize / 4;
 
-        const terrainInfo = getTerrainType(tile.terrain);
-        const colorHex = terrainInfo?.color ?? this.getFallbackTerrainColor(tile.terrain);
-        const color = parseInt(colorHex.replace('#', '0x'), 16);
+        // Diamond top-face vertices (flat tile surface)
+        const topX = cx;
+        const topY = cy - halfH;
+        const rightX = cx + halfW;
+        const rightY = cy;
+        const bottomX = cx;
+        const bottomY = cy + halfH;
+        const leftX = cx - halfW;
+        const leftY = cy;
 
-        // Draw tile background with terrain color
-        this.tileGraphics.fillStyle(color, 1);
-        this.tileGraphics.fillRect(px, py, this.tileSize, this.tileSize);
-
-        // Draw tile border
-        this.tileGraphics.lineStyle(1, 0x000000, 0.2);
-        this.tileGraphics.strokeRect(px, py, this.tileSize, this.tileSize);
-
-        // Elevation shading
+        // --- Draw height side faces for tiles with height > 0 ---
         if (tile.height > 0) {
-          this.tileGraphics.fillStyle(0x000000, 0.08 * tile.height);
-          this.tileGraphics.fillRect(px, py, this.tileSize, this.tileSize);
-        }
+          const sideH = tile.height * 16;
 
-        // Non-walkable overlay
-        if (!tile.walkable) {
+          // Left side face (darker)
           this.tileGraphics.fillStyle(0x000000, 0.35);
-          this.tileGraphics.fillRect(px, py, this.tileSize, this.tileSize);
+          this.tileGraphics.fillTriangle(
+            leftX, leftY,
+            bottomX, bottomY,
+            bottomX, bottomY + sideH,
+          );
+          this.tileGraphics.fillTriangle(
+            leftX, leftY,
+            leftX, leftY + sideH,
+            bottomX, bottomY + sideH,
+          );
+
+          // Right side face (slightly lighter)
+          this.tileGraphics.fillStyle(0x000000, 0.25);
+          this.tileGraphics.fillTriangle(
+            rightX, rightY,
+            bottomX, bottomY,
+            bottomX, bottomY + sideH,
+          );
+          this.tileGraphics.fillTriangle(
+            rightX, rightY,
+            rightX, rightY + sideH,
+            bottomX, bottomY + sideH,
+          );
         }
 
-        // Hazard / objective tint
+        // --- Draw tile sprite ---
+        const spriteKey = this.getTerrainSpriteKey(tile.terrain);
+        if (this.scene.textures && this.scene.textures.exists(spriteKey)) {
+          if (this.tileSprites[x] && this.tileSprites[x][y]) {
+            this.tileSprites[x][y]!.destroy();
+          }
+          const img = this.scene.add.image(cx, cy, spriteKey);
+          // Scale the sprite to fit the diamond footprint
+          const scaleX = this.tileSize / img.width;
+          const scaleY = (this.tileSize / 2) / img.height;
+          img.setScale(Math.min(scaleX, scaleY));
+          img.setDepth(1);
+          img.setAlpha(tile.walkable ? 1 : 0.65);
+          this.tileSprites[x][y] = img;
+        }
+
+        // --- Draw diamond top face (semi-transparent fill for blending) ---
+        const terrainInfo = getTerrainType(tile.terrain);
+        const colorHex = terrainInfo?.color ?? this.getTerrainFallbackColor(tile.terrain);
+        const color = typeof colorHex === 'string' ? parseInt(colorHex.replace('#', '0x'), 16) : colorHex;
+
+        this.tileGraphics.fillStyle(color, 0.15);
+        this.tileGraphics.fillTriangle(cx, topY, rightX, rightY, cx, bottomY);
+        this.tileGraphics.fillTriangle(cx, topY, leftX, leftY, cx, bottomY);
+
+        // --- Non-walkable overlay ---
+        if (!tile.walkable) {
+          this.tileGraphics.fillStyle(0x000000, 0.30);
+          this.tileGraphics.fillTriangle(cx, topY, rightX, rightY, cx, bottomY);
+          this.tileGraphics.fillTriangle(cx, topY, leftX, leftY, cx, bottomY);
+        }
+
+        // --- Hazard / objective tint ---
         if (tile.hazardType) {
-          this.tileGraphics.fillStyle(0xffb703, 0.35);
-          this.tileGraphics.fillRect(px, py, this.tileSize, this.tileSize);
+          this.tileGraphics.fillStyle(0xffb703, 0.30);
+          this.tileGraphics.fillTriangle(cx, topY, rightX, rightY, cx, bottomY);
+          this.tileGraphics.fillTriangle(cx, topY, leftX, leftY, cx, bottomY);
         } else if (tile.objectiveId) {
-          this.tileGraphics.fillStyle(0xd8b4fe, 0.35);
-          this.tileGraphics.fillRect(px, py, this.tileSize, this.tileSize);
+          this.tileGraphics.fillStyle(0xd8b4fe, 0.30);
+          this.tileGraphics.fillTriangle(cx, topY, rightX, rightY, cx, bottomY);
+          this.tileGraphics.fillTriangle(cx, topY, leftX, leftY, cx, bottomY);
         }
 
-        // Terrain icon
-        const icon = terrainInfo?.icon ?? this.getFallbackTerrainIcon(tile.terrain);
-        const fontSize = Math.max(10, Math.floor(this.tileSize * 0.4));
-        const text = this.scene.add.text(px + this.tileSize / 2, py + this.tileSize / 2, icon, {
-          fontSize: `${fontSize}px`,
-        }).setOrigin(0.5).setDepth(2);
-
-        this.tileIconTexts[x][y] = text;
+        // --- Diamond outline ---
+        this.tileGraphics.lineStyle(1, 0x000000, 0.25);
+        this.tileGraphics.beginPath();
+        this.tileGraphics.moveTo(topX, topY);
+        this.tileGraphics.lineTo(rightX, rightY);
+        this.tileGraphics.lineTo(bottomX, bottomY);
+        this.tileGraphics.lineTo(leftX, leftY);
+        this.tileGraphics.closePath();
+        this.tileGraphics.strokePath();
       }
     }
   }
 
-  private getFallbackTerrainColor(terrain: string): string {
+  private getTerrainFallbackColor(terrain: string): string {
     const map: Record<string, string> = {
       grass: '#90EE90',
       dirt: '#8B7355',
       stone: '#708090',
+      water: '#4a90d9',
+      plain: '#7ec850',
+      mountain: '#8B7355',
+      urban: '#9e9e9e',
+      forest: '#2e7d32',
     };
     return map[terrain] ?? '#888888';
   }
 
-  private getFallbackTerrainIcon(terrain: string): string {
-    const map: Record<string, string> = {
-      grass: '🌿',
-      dirt: '🟫',
-      stone: '🪨',
-    };
-    return map[terrain] ?? '❓';
-  }
+  // ─── Public accessors ────────────────────────────────────────────────
 
   getTile(x: number, y: number): TileData | null {
     if (x < 0 || x >= this.width || y < 0 || y >= this.height) return null;
@@ -240,26 +348,12 @@ export class GridMap {
   }
 
   getTileWorldPosition(x: number, y: number): { x: number; y: number } {
-    const offsetX = (this.scene.scale.width - this.width * this.tileSize) / 2;
-    const offsetY = (this.scene.scale.height - this.height * this.tileSize) / 2;
-    const tile = this.getTile(x, y);
-    const height = tile ? tile.height : 0;
-
-    return {
-      x: offsetX + x * this.tileSize + this.tileSize / 2,
-      y: offsetY + y * this.tileSize + this.tileSize / 2 - height * 16,
-    };
+    const { px, py } = this.tileToIso(x, y);
+    return { x: px, y: py };
   }
 
   worldToTile(wx: number, wy: number): { x: number; y: number } | null {
-    const offsetX = (this.scene.scale.width - this.width * this.tileSize) / 2;
-    const offsetY = (this.scene.scale.height - this.height * this.tileSize) / 2;
-
-    const x = Math.floor((wx - offsetX) / this.tileSize);
-    const y = Math.floor((wy - offsetY + 32) / this.tileSize);
-
-    if (x < 0 || x >= this.width || y < 0 || y >= this.height) return null;
-    return { x, y };
+    return this.isoToTile(wx, wy);
   }
 
   /**
@@ -472,35 +566,43 @@ export class GridMap {
   }
 
   /**
-   * Highlight tiles for UI feedback with improved readability (fill + outline)
+   * Highlight tiles for UI feedback with diamond shapes
    */
   highlightTiles(tiles: HighlightTile[]): void {
     this.highlightGraphics.clear();
 
     for (const tile of tiles) {
-      const worldPos = this.getTileWorldPosition(tile.x, tile.y);
+      const { px: cx, py: cy } = this.tileToIso(tile.x, tile.y);
       const color = tile.color ?? 0x00ff00;
       const alpha = tile.alpha ?? 0.3;
-      const half = this.tileSize / 2;
+      const halfW = this.tileSize / 2;
+      const halfH = this.tileSize / 4;
       const pad = 2;
 
-      // Fill
-      this.highlightGraphics.fillStyle(color, alpha);
-      this.highlightGraphics.fillRect(
-        worldPos.x - half + pad,
-        worldPos.y - half + pad,
-        this.tileSize - pad * 2,
-        this.tileSize - pad * 2
-      );
+      // Diamond vertices with padding
+      const topX = cx;
+      const topY = cy - halfH + pad;
+      const rightX = cx + halfW - pad;
+      const rightY = cy;
+      const bottomX = cx;
+      const bottomY = cy + halfH - pad;
+      const leftX = cx - halfW + pad;
+      const leftY = cy;
 
-      // Outline for readability
+      // Fill diamond
+      this.highlightGraphics.fillStyle(color, alpha);
+      this.highlightGraphics.fillTriangle(topX, topY, rightX, rightY, bottomX, bottomY);
+      this.highlightGraphics.fillTriangle(topX, topY, leftX, leftY, bottomX, bottomY);
+
+      // Outline diamond
       this.highlightGraphics.lineStyle(2, color, Math.min(1, alpha + 0.3));
-      this.highlightGraphics.strokeRect(
-        worldPos.x - half + pad,
-        worldPos.y - half + pad,
-        this.tileSize - pad * 2,
-        this.tileSize - pad * 2
-      );
+      this.highlightGraphics.beginPath();
+      this.highlightGraphics.moveTo(topX, topY);
+      this.highlightGraphics.lineTo(rightX, rightY);
+      this.highlightGraphics.lineTo(bottomX, bottomY);
+      this.highlightGraphics.lineTo(leftX, leftY);
+      this.highlightGraphics.closePath();
+      this.highlightGraphics.strokePath();
     }
   }
 
