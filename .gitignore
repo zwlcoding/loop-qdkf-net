@@ -25,6 +25,7 @@ Thumbs.db
 godot/build/
 godot/android/build/
 godot/export_credentials.cfg
+godot/libs/
 
 # Gradle
 **/.gradle/
