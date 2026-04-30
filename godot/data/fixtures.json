@@ -1,0 +1,42 @@
+[
+  {
+    "id":"quick_battle",
+    "mission_id":"seal_ridge_gate",
+    "map_id":"ridge_gate",
+    "squad":["vanguard","skirmisher","support"]
+  },
+  {
+    "id":"quick_parity",
+    "mission_id":"seal_ridge_gate",
+    "map_id":"ridge_gate",
+    "battle_setup":{
+      "id":"quick_parity",
+      "mission_id":"seal_ridge_gate",
+      "map_id":"ridge_gate",
+      "squads":[
+        {
+          "id":0,
+          "name":"甲队",
+          "team":"player",
+          "control":"human",
+          "units":[
+            {"id":"a_vanguard","label":"甲1 先锋","chassis":"vanguard","x":0,"y":4,"modules":["strike","shield_bash","rift_combo","field_kit"]},
+            {"id":"a_skirmisher","label":"甲2 游击者","chassis":"skirmisher","x":1,"y":4,"modules":["strike","rift_combo","field_kit"]},
+            {"id":"a_support","label":"甲3 支援者","chassis":"support","x":0,"y":5,"modules":["strike","heal","rift_combo","field_kit"]}
+          ]
+        },
+        {
+          "id":1,
+          "name":"乙队",
+          "team":"enemy",
+          "control":"ai",
+          "units":[
+            {"id":"b_vanguard","label":"乙1 先锋","chassis":"vanguard","x":5,"y":0,"modules":["strike","shield_bash","rift_combo","field_kit"]},
+            {"id":"b_skirmisher","label":"乙2 游击者","chassis":"skirmisher","x":4,"y":1,"modules":["strike","rift_combo","field_kit"]},
+            {"id":"b_caster","label":"乙3 施法者","chassis":"caster","x":5,"y":2,"modules":["strike","fireball","rift_combo","field_kit"]}
+          ]
+        }
+      ]
+    }
+  }
+]

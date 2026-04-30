@@ -1,0 +1,8 @@
+[
+  {"id":"plain","name":"平原","passable":true,"cover":0,"move_cost":1},
+  {"id":"forest","name":"森林","passable":true,"cover":1,"move_cost":2},
+  {"id":"urban","name":"城镇","passable":true,"cover":1,"move_cost":1},
+  {"id":"mountain","name":"山地","passable":true,"cover":2,"move_cost":2},
+  {"id":"water","name":"水域","passable":true,"standable":true,"action_blocked":["attack","skill","tool","combo"],"cover":0,"move_cost":2},
+  {"id":"rift","name":"裂隙","passable":false,"cover":0,"move_cost":99}
+]

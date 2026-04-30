@@ -1,0 +1,26 @@
+[
+  {
+    "id":"ridge_gate",
+    "name":"山脊门",
+    "width":6,
+    "height":6,
+    "player_starts":[{"x":0,"y":4},{"x":1,"y":4},{"x":0,"y":5}],
+    "enemy_starts":[{"x":5,"y":0},{"x":4,"y":1},{"x":5,"y":1}],
+    "enemies":[
+      {"chassis":"vanguard","x":5,"y":0},
+      {"chassis":"skirmisher","x":4,"y":1},
+      {"chassis":"caster","x":5,"y":2}
+    ],
+    "objects":[
+      {"id":"tree_3_3","kind":"tree","x":3,"y":3,"blocks_vision":true,"blocks_projectile":true,"blocks_movement":true,"targetable":true,"destructible":true,"durability":6}
+    ],
+    "cells":[
+      {"x":0,"y":0,"terrain":"forest","height":1},{"x":1,"y":0,"terrain":"plain","height":1},{"x":2,"y":0,"terrain":"plain","height":2},{"x":3,"y":0,"terrain":"mountain","height":2},{"x":4,"y":0,"terrain":"urban","height":1},{"x":5,"y":0,"terrain":"urban","height":1},
+      {"x":0,"y":1,"terrain":"forest","height":1},{"x":1,"y":1,"terrain":"plain","height":1},{"x":2,"y":1,"terrain":"mountain","height":2,"objective":"relic"},{"x":3,"y":1,"terrain":"mountain","height":2},{"x":4,"y":1,"terrain":"urban","height":1},{"x":5,"y":1,"terrain":"plain","height":0},
+      {"x":0,"y":2,"terrain":"plain","height":0},{"x":1,"y":2,"terrain":"plain","height":1},{"x":2,"y":2,"terrain":"plain","height":1},{"x":3,"y":2,"terrain":"plain","height":1},{"x":4,"y":2,"terrain":"urban","height":1},{"x":5,"y":2,"terrain":"plain","height":0},
+      {"x":0,"y":3,"terrain":"plain","height":0},{"x":1,"y":3,"terrain":"water","height":0},{"x":2,"y":3,"terrain":"plain","height":0},{"x":3,"y":3,"terrain":"forest","height":1},{"x":4,"y":3,"terrain":"plain","height":0},{"x":5,"y":3,"terrain":"plain","height":0},
+      {"x":0,"y":4,"terrain":"urban","height":0},{"x":1,"y":4,"terrain":"plain","height":0},{"x":2,"y":4,"terrain":"plain","height":0},{"x":3,"y":4,"terrain":"forest","height":1},{"x":4,"y":4,"terrain":"plain","height":0},{"x":5,"y":4,"terrain":"plain","height":0,"objective":"extraction"},
+      {"x":0,"y":5,"terrain":"urban","height":0},{"x":1,"y":5,"terrain":"plain","height":0},{"x":2,"y":5,"terrain":"rift","height":0},{"x":3,"y":5,"terrain":"plain","height":0},{"x":4,"y":5,"terrain":"plain","height":0},{"x":5,"y":5,"terrain":"forest","height":1}
+    ]
+  }
+]

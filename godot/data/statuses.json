@@ -1,0 +1,7 @@
+[
+  {"id":"slow","name":"减速","summary":"战术节奏降低。"},
+  {"id":"root","name":"缠绕","summary":"无法移动。"},
+  {"id":"vulnerable","name":"脆弱","summary":"受到更多伤害。"},
+  {"id":"shield","name":"护盾","summary":"吸收伤害。"},
+  {"id":"stun","name":"眩晕","summary":"失去下次行动。"}
+]

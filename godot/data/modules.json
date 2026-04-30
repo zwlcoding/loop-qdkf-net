@@ -1,0 +1,9 @@
+[
+  {"id":"strike","name":"斩击","kind":"attack","category":"active","range":1,"power":0},
+  {"id":"shield_bash","name":"盾击","kind":"attack","category":"active","range":1,"power":1,"knockback":1},
+  {"id":"root_shot","name":"缠根射击","kind":"attack","category":"active","range":3,"power":0,"status":"root","line_of_sight":true},
+  {"id":"fireball","name":"火球术","kind":"attack","category":"active","range":3,"power":3,"line_of_sight":true},
+  {"id":"heal","name":"治愈","kind":"heal","category":"active","range":2,"heal":8},
+  {"id":"rift_combo","name":"裂隙连携","kind":"combo","category":"combo","range":1,"cost":1,"participation_range":3},
+  {"id":"field_kit","name":"野战包","kind":"item","category":"tool","range":1,"heal":8}
+]

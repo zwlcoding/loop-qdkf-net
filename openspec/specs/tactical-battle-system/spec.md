@@ -131,3 +131,95 @@ The system SHALL provide audio and visual feedback for combat actions so that at
 - **WHEN** the game transitions between scenes
 - **THEN** the system SHALL fade out the current scene and fade in the next scene
 
+### Requirement: Tactical battle presentation SHALL visually match logical tile occupancy
+The system SHALL render units and board feedback so every visible combat object corresponds to its logical tile, elevation, and turn state.
+
+#### Scenario: Unit is placed on a tile
+- **WHEN** a unit is initialized or moved to logical coordinates `(x, y)`
+- **THEN** the unit sprite, base shadow, HP bar, label, selection indicator, and target marker SHALL appear anchored to the same visible tile top face
+
+#### Scenario: Unit moves across elevation
+- **WHEN** a unit moves between tiles with different heights
+- **THEN** the unit's visual path and final resting position SHALL reflect the elevated tile centers used by the board renderer
+
+#### Scenario: Board feedback appears under a unit
+- **WHEN** movement, targeting, mission, hazard, or path feedback overlaps a tile occupied by a unit
+- **THEN** the feedback SHALL remain readable while preserving the unit as the clear occupant of that tile
+
+### Requirement: Tactical battle presentation SHALL make height readable during combat
+The system SHALL present terrain height differences clearly enough that movement, jump limits, range decisions, and high-ground modifiers can be understood from the battlefield view.
+
+#### Scenario: Movement preview crosses a cliff
+- **WHEN** movement preview includes tiles separated by a height difference greater than the unit's jump limit
+- **THEN** the visual board SHALL show the relevant height break as an elevated edge or wall
+
+#### Scenario: High-ground unit attacks lower target
+- **WHEN** a unit attacks from a higher tile to a lower tile
+- **THEN** the board presentation SHALL make the relative elevation apparent without requiring the player to read debug text
+
+### Requirement: Godot battle prototype SHALL preserve MVP tactical rules
+The Godot battle prototype SHALL implement the existing MVP tactical rule set for local play, including up to two squads, up to three units per squad, unit turns, Move/Jump traversal, facing, height effects, knockback, active combo actions, statuses, objectives, extraction, and endgame pressure.
+
+#### Scenario: Godot battle starts from setup data
+- **WHEN** a local Godot run launches a tactical battle after squad setup
+- **THEN** the battle SHALL initialize player units, opposing actors, terrain, objectives, turn order, resources, and mission state from the selected setup and map data
+
+#### Scenario: Godot unit resolves a turn
+- **WHEN** a Godot battle unit takes its turn
+- **THEN** the unit SHALL support movement, primary action, optional item/tool interaction where configured, facing confirmation, and turn completion according to the MVP rules
+
+### Requirement: Godot movement SHALL use logical grid and height data
+The Godot battle prototype SHALL determine reachable tiles from logical grid data using Move range, Jump tolerance, occupancy, terrain passability, and objective blockers before presenting movement previews.
+
+#### Scenario: Reachable tiles are previewed
+- **WHEN** the player selects movement for an active unit
+- **THEN** the Godot board SHALL highlight only tiles reachable by the unit's Move and Jump constraints
+
+#### Scenario: Tile selection is confirmed
+- **WHEN** the player confirms a highlighted destination
+- **THEN** the unit SHALL move to the matching logical tile and the visual unit position SHALL stay anchored to that tile
+
+### Requirement: Godot combat SHALL expose positional tactics
+The Godot battle prototype SHALL resolve attacks and skills with readable effects from facing, height, range, line/area targeting where configured, statuses, and knockback.
+
+#### Scenario: Rear or side attack is resolved
+- **WHEN** a Godot unit attacks a target from the target's side or rear arc
+- **THEN** the combat resolver SHALL apply the configured positional benefit and the UI SHALL communicate the attack result
+
+#### Scenario: Knockback changes position
+- **WHEN** a Godot action applies knockback
+- **THEN** the target SHALL be pushed according to grid, obstacle, edge, and height/fall rules and the resulting position/effect SHALL be visible to the player
+
+### Requirement: Godot battle SHALL include local AI opponents
+The Godot battle prototype SHALL include nonplayer turn planning sufficient to complete local prototype battles without online multiplayer.
+
+#### Scenario: AI unit becomes active
+- **WHEN** an AI-controlled unit reaches its turn
+- **THEN** it SHALL choose and execute a valid movement/action plan based on available targets, objectives, and tactical opportunity
+
+### Requirement: Godot battle SHALL provide outcome closure
+The Godot battle prototype SHALL reach a clear result through mission success, defeat, extraction, objective completion, or escalating endgame pressure.
+
+#### Scenario: Extraction succeeds
+- **WHEN** the player's eligible units satisfy extraction requirements
+- **THEN** the battle SHALL resolve to an extraction outcome and pass reward/loss summary data to the result or loot flow
+
+#### Scenario: Endgame pressure escalates
+- **WHEN** battle duration or turn count reaches the configured late threshold
+- **THEN** the Godot battle SHALL apply escalating pressure until the encounter resolves within the prototype time target
+
+### Requirement: Tactical battle presentation SHALL distinguish action affordances
+The tactical battle presentation SHALL visually distinguish movement destinations, selected path, action range, legal targets, and invalid command feedback so players can understand available actions without reading debug-only output.
+
+#### Scenario: Action range differs from legal target
+- **WHEN** a selected action has tiles in range but no legal target on some of those tiles
+- **THEN** the presentation SHALL show range context with lower emphasis than legal targets and SHALL prevent players from mistaking range-only tiles for executable targets
+
+#### Scenario: Multiple action categories exist
+- **WHEN** the battle supports movement, basic attacks, skills, tools, and combos
+- **THEN** each action category SHALL have distinguishable presentation through color, outline, glyph, label, or another non-color cue
+
+#### Scenario: Feedback overlaps board occupants
+- **WHEN** action feedback overlaps terrain height, objectives, or unit occupants
+- **THEN** the presentation SHALL preserve the logical occupant and still make the action affordance readable
+

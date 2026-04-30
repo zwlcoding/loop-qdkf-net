@@ -1,3 +1,31 @@
 **/dist
 **/node_modules
 .hermes/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor/IDE
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Tool local config
+.codex/
+.claude/settings.local.json
+
+# Godot generated files
+**/.godot/
+**/*.import
+
+# Godot build artifacts
+godot/build/
+godot/android/build/
+godot/export_credentials.cfg
+
+# Gradle
+**/.gradle/
+**/gradle.properties

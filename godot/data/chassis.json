@@ -1,0 +1,7 @@
+[
+  {"id":"vanguard","name":"先锋","role":"guard","hp":34,"attack":7,"defense":3,"move":3,"jump":1,"speed":4},
+  {"id":"skirmisher","name":"游击者","role":"flanker","hp":24,"attack":6,"defense":1,"move":5,"jump":2,"speed":8},
+  {"id":"support","name":"支援者","role":"medic","hp":26,"attack":4,"defense":2,"move":4,"jump":1,"speed":6},
+  {"id":"controller","name":"掌控者","role":"control","hp":22,"attack":5,"defense":1,"move":3,"jump":1,"speed":5},
+  {"id":"caster","name":"施法者","role":"burst","hp":20,"attack":8,"defense":0,"move":3,"jump":1,"speed":5}
+]
